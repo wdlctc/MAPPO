@@ -1,0 +1,25 @@
+2022-12-13 07:03:24,873 INFO    MainThread:327561 [wandb_setup.py:_flush():68] Configure stats pid to 327561
+2022-12-13 07:03:24,873 INFO    MainThread:327561 [wandb_setup.py:_flush():68] Loading settings from /home/t-chengluo/.config/wandb/settings
+2022-12-13 07:03:24,873 INFO    MainThread:327561 [wandb_setup.py:_flush():68] Loading settings from /home/t-chengluo/RL/MAPPO/wandb/settings
+2022-12-13 07:03:24,873 INFO    MainThread:327561 [wandb_setup.py:_flush():68] Loading settings from environment variables: {'_require_service': 'True'}
+2022-12-13 07:03:24,873 INFO    MainThread:327561 [wandb_setup.py:_flush():68] Inferring run settings from compute environment: {'program_relpath': 'train/train_abr_5G.py', 'program': 'train/train_abr_5G.py'}
+2022-12-13 07:03:24,873 INFO    MainThread:327561 [wandb_init.py:_log_setup():476] Logging user logs to /home/t-chengluo/RL/MAPPO/results/abr_5G/abr_5G/ppo/check/wandb/run-20221213_070324-3vudgikm/logs/debug.log
+2022-12-13 07:03:24,874 INFO    MainThread:327561 [wandb_init.py:_log_setup():477] Logging internal logs to /home/t-chengluo/RL/MAPPO/results/abr_5G/abr_5G/ppo/check/wandb/run-20221213_070324-3vudgikm/logs/debug-internal.log
+2022-12-13 07:03:24,874 INFO    MainThread:327561 [wandb_init.py:init():516] calling init triggers
+2022-12-13 07:03:24,874 INFO    MainThread:327561 [wandb_init.py:init():520] wandb.init called with sweep_config: {}
+config: {'algorithm_name': 'ppo', 'experiment_name': 'check', 'seed': 1, 'cuda': True, 'cuda_deterministic': True, 'n_training_threads': 1, 'n_rollout_threads': 1000, 'n_eval_rollout_threads': 1, 'n_render_rollout_threads': 1, 'num_env_steps': 10000000000000, 'user_name': 'wdlctc_abr', 'use_wandb': True, 'env_name': 'abr_5G', 'use_obs_instead_of_state': False, 'episode_length': 100, 'share_policy': True, 'use_centralized_V': True, 'stacked_frames': 1, 'use_stacked_frames': False, 'hidden_size': 512, 'layer_N': 2, 'use_ReLU': True, 'use_popart': False, 'use_valuenorm': True, 'use_feature_normalization': True, 'use_orthogonal': True, 'gain': 0.01, 'use_naive_recurrent_policy': False, 'use_recurrent_policy': True, 'recurrent_N': 1, 'data_chunk_length': 10, 'lr': 0.0007, 'critic_lr': 0.001, 'opti_eps': 1e-05, 'weight_decay': 0, 'ppo_epoch': 15, 'use_clipped_value_loss': True, 'clip_param': 0.2, 'num_mini_batch': 1, 'entropy_coef': 0.015, 'value_loss_coef': 1, 'use_max_grad_norm': True, 'max_grad_norm': 10.0, 'use_gae': True, 'gamma': 0.99, 'gae_lambda': 0.95, 'use_proper_time_limits': False, 'use_huber_loss': True, 'use_value_active_masks': True, 'use_policy_active_masks': True, 'huber_delta': 10.0, 'use_linear_lr_decay': False, 'save_interval': 1, 'log_interval': 5, 'use_eval': False, 'eval_interval': 25, 'eval_episodes': 32, 'save_gifs': False, 'use_render': False, 'render_episodes': 5, 'ifi': 0.1, 'model_dir': None, 'abr_name': 'abr_5G'}
+2022-12-13 07:03:24,874 INFO    MainThread:327561 [wandb_init.py:init():569] starting backend
+2022-12-13 07:03:24,874 INFO    MainThread:327561 [wandb_init.py:init():573] setting up manager
+2022-12-13 07:03:24,881 INFO    MainThread:327561 [backend.py:_multiprocessing_setup():104] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2022-12-13 07:03:24,885 INFO    MainThread:327561 [wandb_init.py:init():580] backend started and connected
+2022-12-13 07:03:24,890 INFO    MainThread:327561 [wandb_init.py:init():658] updated telemetry
+2022-12-13 07:03:24,891 INFO    MainThread:327561 [wandb_init.py:init():694] communicating run to backend with 60 second timeout
+2022-12-13 07:03:25,660 INFO    MainThread:327561 [wandb_run.py:_on_init():2006] communicating current version
+2022-12-13 07:03:25,982 INFO    MainThread:327561 [wandb_run.py:_on_init():2010] got version response 
+2022-12-13 07:03:25,983 INFO    MainThread:327561 [wandb_init.py:init():728] starting run threads in backend
+2022-12-13 07:03:31,006 INFO    MainThread:327561 [wandb_run.py:_console_start():1986] atexit reg
+2022-12-13 07:03:31,007 INFO    MainThread:327561 [wandb_run.py:_redirect():1844] redirect: SettingsConsole.WRAP_RAW
+2022-12-13 07:03:31,007 INFO    MainThread:327561 [wandb_run.py:_redirect():1909] Wrapping output streams.
+2022-12-13 07:03:31,007 INFO    MainThread:327561 [wandb_run.py:_redirect():1931] Redirects installed.
+2022-12-13 07:03:31,008 INFO    MainThread:327561 [wandb_init.py:init():765] run started, returning control to user process
+2022-12-13 07:03:43,064 WARNING MsgRouterThr:327561 [router.py:message_loop():77] message_loop has been closed

@@ -1,0 +1,26 @@
+2022-12-13 07:00:45,576 INFO    MainThread:327028 [wandb_setup.py:_flush():68] Configure stats pid to 327028
+2022-12-13 07:00:45,576 INFO    MainThread:327028 [wandb_setup.py:_flush():68] Loading settings from /home/t-chengluo/.config/wandb/settings
+2022-12-13 07:00:45,576 INFO    MainThread:327028 [wandb_setup.py:_flush():68] Loading settings from /home/t-chengluo/RL/MAPPO/wandb/settings
+2022-12-13 07:00:45,576 INFO    MainThread:327028 [wandb_setup.py:_flush():68] Loading settings from environment variables: {'_require_service': 'True'}
+2022-12-13 07:00:45,576 INFO    MainThread:327028 [wandb_setup.py:_flush():68] Inferring run settings from compute environment: {'program_relpath': 'train/train_abr_5G.py', 'program': 'train/train_abr_5G.py'}
+2022-12-13 07:00:45,577 INFO    MainThread:327028 [wandb_init.py:_log_setup():476] Logging user logs to /home/t-chengluo/RL/MAPPO/results/abr_5G/abr_5G/ppo/check/wandb/run-20221213_070045-1vbmqbn2/logs/debug.log
+2022-12-13 07:00:45,577 INFO    MainThread:327028 [wandb_init.py:_log_setup():477] Logging internal logs to /home/t-chengluo/RL/MAPPO/results/abr_5G/abr_5G/ppo/check/wandb/run-20221213_070045-1vbmqbn2/logs/debug-internal.log
+2022-12-13 07:00:45,577 INFO    MainThread:327028 [wandb_init.py:init():516] calling init triggers
+2022-12-13 07:00:45,577 INFO    MainThread:327028 [wandb_init.py:init():520] wandb.init called with sweep_config: {}
+config: {'algorithm_name': 'ppo', 'experiment_name': 'check', 'seed': 1, 'cuda': True, 'cuda_deterministic': True, 'n_training_threads': 1, 'n_rollout_threads': 1000, 'n_eval_rollout_threads': 1, 'n_render_rollout_threads': 1, 'num_env_steps': 10000000000000, 'user_name': 'marl', 'use_wandb': True, 'env_name': 'abr_5G', 'use_obs_instead_of_state': False, 'episode_length': 100, 'share_policy': True, 'use_centralized_V': True, 'stacked_frames': 1, 'use_stacked_frames': False, 'hidden_size': 512, 'layer_N': 2, 'use_ReLU': True, 'use_popart': False, 'use_valuenorm': True, 'use_feature_normalization': True, 'use_orthogonal': True, 'gain': 0.01, 'use_naive_recurrent_policy': False, 'use_recurrent_policy': True, 'recurrent_N': 1, 'data_chunk_length': 10, 'lr': 0.0007, 'critic_lr': 0.001, 'opti_eps': 1e-05, 'weight_decay': 0, 'ppo_epoch': 15, 'use_clipped_value_loss': True, 'clip_param': 0.2, 'num_mini_batch': 1, 'entropy_coef': 0.015, 'value_loss_coef': 1, 'use_max_grad_norm': True, 'max_grad_norm': 10.0, 'use_gae': True, 'gamma': 0.99, 'gae_lambda': 0.95, 'use_proper_time_limits': False, 'use_huber_loss': True, 'use_value_active_masks': True, 'use_policy_active_masks': True, 'huber_delta': 10.0, 'use_linear_lr_decay': False, 'save_interval': 1, 'log_interval': 5, 'use_eval': False, 'eval_interval': 25, 'eval_episodes': 32, 'save_gifs': False, 'use_render': False, 'render_episodes': 5, 'ifi': 0.1, 'model_dir': None, 'abr_name': 'abr_5G'}
+2022-12-13 07:00:45,577 INFO    MainThread:327028 [wandb_init.py:init():569] starting backend
+2022-12-13 07:00:45,577 INFO    MainThread:327028 [wandb_init.py:init():573] setting up manager
+2022-12-13 07:00:45,583 INFO    MainThread:327028 [backend.py:_multiprocessing_setup():104] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2022-12-13 07:00:45,587 INFO    MainThread:327028 [wandb_init.py:init():580] backend started and connected
+2022-12-13 07:00:45,591 INFO    MainThread:327028 [wandb_init.py:init():658] updated telemetry
+2022-12-13 07:00:45,592 INFO    MainThread:327028 [wandb_init.py:init():694] communicating run to backend with 60 second timeout
+2022-12-13 07:00:48,664 WARNING MsgRouterThr:327028 [router.py:message_loop():77] message_loop has been closed
+2022-12-13 07:00:55,610 ERROR   MainThread:327028 [wandb_init.py:init():1105] error
+Traceback (most recent call last):
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/wandb_init.py", line 1078, in init
+    run = wi.init()
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/wandb_init.py", line 698, in init
+    timeout=self.settings.init_timeout, on_progress=self._on_progress_init
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/lib/mailbox.py", line 259, in wait
+    raise MailboxError("transport failed")
+wandb.errors.MailboxError: transport failed

@@ -1,0 +1,69 @@
+2022-12-13 07:00:45,596 INFO    StreamThr :327099 [internal.py:wandb_internal():90] W&B internal server running at pid: 327099, started at: 2022-12-13 07:00:45.595220
+2022-12-13 07:00:45,599 DEBUG   HandlerThread:327099 [handler.py:handle_request():139] handle_request: status
+2022-12-13 07:00:45,603 DEBUG   SenderThread:327099 [sender.py:send_request():317] send_request: status
+2022-12-13 07:00:45,606 DEBUG   SenderThread:327099 [sender.py:send():303] send: header
+2022-12-13 07:00:45,607 INFO    WriterThread:327099 [datastore.py:open_for_write():75] open: /home/t-chengluo/RL/MAPPO/results/abr_5G/abr_5G/ppo/check/wandb/run-20221213_070045-1vbmqbn2/run-1vbmqbn2.wandb
+2022-12-13 07:00:45,608 DEBUG   SenderThread:327099 [sender.py:send():303] send: run
+2022-12-13 07:00:46,276 ERROR   SenderThread:327099 [internal_api.py:execute():212] 403 response executing GraphQL.
+2022-12-13 07:00:46,277 ERROR   SenderThread:327099 [internal_api.py:execute():213] {"errors":[{"message":"permission denied","path":["upsertBucket"],"extensions":{"code":"PERMISSION_ERROR"}}],"data":{"upsertBucket":null}}
+2022-12-13 07:00:46,609 INFO    HandlerThread:327099 [handler.py:finish():814] shutting down handler
+2022-12-13 07:00:46,624 INFO    WriterThread:327099 [datastore.py:close():279] close: /home/t-chengluo/RL/MAPPO/results/abr_5G/abr_5G/ppo/check/wandb/run-20221213_070045-1vbmqbn2/run-1vbmqbn2.wandb
+2022-12-13 07:00:46,624 ERROR   StreamThr :327099 [internal.py:wandb_internal():162] Thread SenderThread:
+Traceback (most recent call last):
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/lib/retry.py", line 113, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/internal_api.py", line 209, in execute
+    return self.client.execute(*args, **kwargs)  # type: ignore
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/vendor/gql-0.2.0/wandb_gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/vendor/gql-0.2.0/wandb_gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/vendor/gql-0.2.0/wandb_gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/requests/models.py", line 960, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://api.wandb.ai/graphql
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/apis/normalize.py", line 26, in wrapper
+    return func(*args, **kwargs)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/internal_api.py", line 1519, in upsert_run
+    **kwargs,
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/lib/retry.py", line 129, in __call__
+    retry_timedelta_triggered = check_retry_fn(e)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/util.py", line 1049, in check_retry_fn
+    return fallback_retry_fn(e)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/util.py", line 996, in no_retry_auth
+    raise CommError("Permission denied, ask the project owner to grant you access")
+wandb.errors.CommError: Permission denied, ask the project owner to grant you access
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/internal_util.py", line 49, in run
+    self._run()
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/internal_util.py", line 100, in _run
+    self._process(record)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/internal.py", line 309, in _process
+    self._sm.send(record)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/sender.py", line 305, in send
+    send_handler(record)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/sender.py", line 797, in send_run
+    self._init_run(run, config_value_dict)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/sender.py", line 837, in _init_run
+    commit=run.git.commit or None,
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/apis/normalize.py", line 62, in wrapper
+    raise CommError(message, err).with_traceback(sys.exc_info()[2])
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/apis/normalize.py", line 26, in wrapper
+    return func(*args, **kwargs)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/internal/internal_api.py", line 1519, in upsert_run
+    **kwargs,
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/sdk/lib/retry.py", line 129, in __call__
+    retry_timedelta_triggered = check_retry_fn(e)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/util.py", line 1049, in check_retry_fn
+    return fallback_retry_fn(e)
+  File "/home/t-chengluo/miniconda3/envs/carbon/lib/python3.7/site-packages/wandb/util.py", line 996, in no_retry_auth
+    raise CommError("Permission denied, ask the project owner to grant you access")
+wandb.errors.CommError: Permission denied, ask the project owner to grant you access
