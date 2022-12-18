@@ -8,7 +8,7 @@ import torch
 from pathlib import Path
 from onpolicy.config import get_config
 from onpolicy.envs.abr.abr_5G import abrEnv
-from onpolicy.envs.env_wrappers import ChooseSubprocVecEnv, ChooseDummyVecEnv
+from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
 """Train script for abr on 5G environment."""
 
@@ -33,15 +33,32 @@ def make_train_env(all_args):
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
-            env.seed(all_args.seed + rank * 1000)
             return env
-
         return init_env
-
     if all_args.n_rollout_threads == 1:
-        return ChooseDummyVecEnv([get_env_fn(0)])
+        return DummyVecEnv([get_env_fn(0)])
     else:
-        return ChooseSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return SubprocVecEnv([get_env_fn(i) for i in range(
+            all_args.n_rollout_threads)])
+
+
+def make_eval_env(all_args):
+    def get_env_fn(rank):
+        def init_env():
+            if all_args.env_name == "abr_5G":
+                env = abrEnv(all_args, (all_args.seed * 50000 + rank * 10000))
+            else:
+                print("Can not support the " +
+                      all_args.env_name + " environment.")
+                raise NotImplementedError
+            return env
+        return init_env
+    if all_args.n_eval_rollout_threads == 1:
+        return DummyVecEnv([get_env_fn(0)])
+    else:
+        return SubprocVecEnv([get_env_fn(i) for i in range(
+            all_args.n_eval_rollout_threads)])
+
 
 def main(args):
     parser = get_config()
@@ -111,9 +128,8 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    # envs = make_train_env(all_args)
-    envs = abrEnv(all_args, all_args.seed)
-    eval_envs = abrEnv(all_args, all_args.seed + 1000)
+    envs = make_train_env(all_args)
+    eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
     config = {
@@ -133,6 +149,17 @@ def main(args):
     
     runner = Runner(config)
     runner.run()
+
+    # post process
+    envs.close()
+    if all_args.use_eval and eval_envs is not envs:
+        eval_envs.close()
+
+    if all_args.use_wandb:
+        run.finish()
+    else:
+        runner.writter.export_scalars_to_json(str(runner.log_dir + '/summary.json'))
+        runner.writter.close()
 
 if __name__ == "__main__":
     main(sys.argv[1:])

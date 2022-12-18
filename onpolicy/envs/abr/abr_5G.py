@@ -86,15 +86,17 @@ class abrEnv(Environment):
             "VIDEO_BIT_RATE": np.array([300., 750., 1200., 1850., 2850., 4300.]),
             "BUFFER_NORM_FACTOR": 10.0,
             "M_IN_K": 1000.0,
-            "CHUNK_TIL_VIDEO_END_CAP": 48.0
-            
+            "CHUNK_TIL_VIDEO_END_CAP": 48.0,
+            "REBUF_PENALTY": 4.3,  # 1 sec rebuffering -> 3 Mbps
+            "SMOOTH_PENALTY": 1,
+            "DEFAULT_QUALITY": 1  # default video quality without agent
         }
 
-        self.env = abrenv.Environment(self.config)
+        self.net_env = abrenv.Environment(self.config)
 
         self.last_bit_rate = self.config["DEFAULT_QUALITY"]
         self.buffer_size = 0
-        self.state = np.zeros((self.config["S_INFO"], self.config["S_LEN"]))
+        self.state = np.zeros(self.config["S_INFO"] * self.config["S_LEN"])
 
         self.action_space = []
         self.observation_space = []
@@ -108,6 +110,8 @@ class abrEnv(Environment):
                 [self.vectorized_share_observation_shape()[0]])
         else:
             raise NotImplementedError("Not implemented for multiple user")
+
+        print(self.action_space, self.observation_space)
 
     def reset(self):
         self.time_stamp = 0
@@ -133,12 +137,12 @@ class abrEnv(Environment):
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
-        obs = state
+        obs = state.flatten()
 
         return obs
 
     def step(self, action):
-        bit_rate = int(action)
+        bit_rate = int(action[0])
         delay, sleep_time, self.buffer_size, rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain = \
@@ -168,8 +172,8 @@ class abrEnv(Environment):
                                   self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
         
-        obs = state
-        done = end_of_video
+        obs = state.flatten()
+        done = np.array([end_of_video] * self.num_agents)
         info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf}
 
         return obs, reward, done, info
@@ -203,3 +207,6 @@ class abrEnv(Environment):
           Integer, number of moves.
         """
         return [self.config["S_INFO"] * self.config["S_LEN"]]
+
+    def close(self):
+        pass
