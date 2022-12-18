@@ -111,8 +111,6 @@ class abrEnv(Environment):
         else:
             raise NotImplementedError("Not implemented for multiple user")
 
-        print(self.action_space, self.observation_space)
-
     def reset(self):
         self.time_stamp = 0
         self.last_bit_rate = self.config["DEFAULT_QUALITY"]
@@ -137,7 +135,9 @@ class abrEnv(Environment):
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
-        obs = state.flatten()
+
+        obs = np.zeros((1, self.config["S_INFO"] * self.config["S_LEN"]))
+        obs[0] = np.concatenate(state)
 
         return obs
 
@@ -172,7 +172,9 @@ class abrEnv(Environment):
                                   self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
         
-        obs = state.flatten()
+        obs = np.zeros((1, self.config["S_INFO"] * self.config["S_LEN"]))
+        obs[0] = np.concatenate(state)
+        reward = [[reward]]
         done = np.array([end_of_video] * self.num_agents)
         info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf}
 

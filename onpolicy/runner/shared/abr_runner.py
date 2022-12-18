@@ -73,7 +73,6 @@ class abrRunner(Runner):
     def warmup(self):
         # reset env
         obs = self.envs.reset()
-
         # insert obs to buffer
         self.buffer.share_obs[0] = obs.copy()
         self.buffer.obs[0] = obs.copy()
