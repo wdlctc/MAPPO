@@ -34,8 +34,8 @@ class abrRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
-                if dones[0] == True:
-                    break
+                # if dones[0] == True:
+                #     break
 
             # compute return and update network
             self.compute()
@@ -61,7 +61,8 @@ class abrRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
+                rewards = self.buffer.rewards
+                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards)
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
 

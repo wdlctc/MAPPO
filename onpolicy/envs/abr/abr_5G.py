@@ -174,7 +174,7 @@ class abrEnv(Environment):
         
         obs = np.zeros((1, self.config["S_INFO"] * self.config["S_LEN"]))
         obs[0] = np.concatenate(state)
-        reward = [[reward]]
+        reward = [[reward]] * self.num_agents
         done = np.array([end_of_video] * self.num_agents)
         info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf}
 
