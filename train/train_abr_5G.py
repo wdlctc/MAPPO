@@ -76,7 +76,7 @@ def main(args):
         print("u are choosing to use ippo, we set use_centralized_V to be False")
         all_args.use_centralized_V = False
     elif all_args.algorithm_name == "ppo":
-        print("u are choosing to use ippo, we set use_centralized_V to be False")
+        print("u are choosing to use ppo, we set use_centralized_V & use_recurrent_policy & use_naive_recurrent_policy to be False")
         all_args.use_centralized_V = False
         all_args.use_recurrent_policy = False 
         all_args.use_naive_recurrent_policy = False
