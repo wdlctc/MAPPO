@@ -34,9 +34,6 @@ class abrRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
-                if dones[0] == True:
-                    break
-
             # compute return and update network
             self.compute()
             train_infos = self.train()

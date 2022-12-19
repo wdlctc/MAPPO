@@ -136,8 +136,14 @@ class abrEnv(Environment):
                                   self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
 
-        obs = np.zeros((1, self.config["S_INFO"] * self.config["S_LEN"]))
-        obs[0] = np.concatenate(state)
+        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
+        obs[0][0] = state[0, -1]
+        obs[0][1] = state[1, -1]
+        obs[0][2:2+self.config["S_LEN"]] = state[2, :]
+        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = state[3, :]
+        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[4, :self.config["A_DIM"]]
+        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[5, -1]
+        
 
         return obs
 
@@ -171,13 +177,21 @@ class abrEnv(Environment):
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
+
+        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
+        obs[0][0] = state[0, -1]
+        obs[0][1] = state[1, -1]
+        obs[0][2:2+self.config["S_LEN"]] = state[2, :]
+        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = state[3, :]
+        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[4, :self.config["A_DIM"]]
+        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[5, -1]
         
-        obs = np.zeros((1, self.config["S_INFO"] * self.config["S_LEN"]))
-        obs[0] = np.concatenate(state)
         reward = [[reward]] * self.num_agents
         done = np.array([end_of_video] * self.num_agents)
         info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf}
 
+        if end_of_video:
+            state = np.zeros((self.config["S_INFO"], self.config["S_LEN"]))
         return obs, reward, done, info
 
     def seed(self, seed=None):
@@ -200,7 +214,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [self.config["S_INFO"] * self.config["S_LEN"]]
+        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).
@@ -208,7 +222,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [self.config["S_INFO"] * self.config["S_LEN"]]
+        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
 
     def close(self):
         pass
