@@ -133,7 +133,7 @@ class abrEnv(Environment):
         state[4, :self.config["A_DIM"]] = np.array(
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
-                                  self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
+                                  self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
 
         obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
@@ -175,7 +175,7 @@ class abrEnv(Environment):
         state[4, :self.config["A_DIM"]] = np.array(
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
-                                  self.config["BUFFER_NORM_FACTOR"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
+                                  self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         self.state = state
 
         obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
