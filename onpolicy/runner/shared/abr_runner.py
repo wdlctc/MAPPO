@@ -18,6 +18,7 @@ class abrRunner(Runner):
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
+        self.rewards = []
         for episode in range(episodes):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -34,6 +35,11 @@ class abrRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
+                for done, info in zip(dones, infos):
+                    if not done:
+                        if 'reward' in info.keys():
+                            self.rewards.append(info['reward'])
+                
             # compute return and update network
             self.compute()
             train_infos = self.train()
@@ -59,7 +65,8 @@ class abrRunner(Runner):
                                 int(total_num_steps / (end - start))))
 
                 rewards = self.buffer.rewards
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards)
+
+                train_infos["average_episode_rewards"] = np.mean(self.rewards)
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
 
@@ -112,6 +119,8 @@ class abrRunner(Runner):
 
     @torch.no_grad()
     def eval(self, total_num_steps):
+
+        print("eval")
         eval_episode_rewards = []
         eval_obs = self.eval_envs.reset()
 

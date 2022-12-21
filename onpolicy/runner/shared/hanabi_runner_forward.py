@@ -86,9 +86,6 @@ class HanabiRunner(Runner):
                 self.use_obs[self.reset_choose] = obs[self.reset_choose]
                 self.use_share_obs[self.reset_choose] = share_obs[self.reset_choose]
                 self.use_available_actions[self.reset_choose] = available_actions[self.reset_choose]
-
-                print(step, self.reset_choose, self.use_obs, available_actions)
-            exit()
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads           
