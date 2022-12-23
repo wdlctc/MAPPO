@@ -35,8 +35,8 @@ class abrRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
-                for done, info in zip(dones, infos):
-                    if not done:
+                for info in infos:
+                    if 'done' in info.keys() and not info['done']:
                         if 'reward' in info.keys():
                             self.rewards.append(info['reward'])
                 

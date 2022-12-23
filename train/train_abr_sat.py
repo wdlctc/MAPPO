@@ -26,8 +26,6 @@ def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "abr_sat":
-                assert all_args.num_agents == 1, (
-                    "num_agents must be 1.")
                 env = abrEnv(all_args, (all_args.seed + rank * 1000))
             else:
                 print("Can not support the " +

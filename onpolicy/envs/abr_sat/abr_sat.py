@@ -112,7 +112,12 @@ class abrEnv(Environment):
             self.share_observation_space.append(
                 [self.vectorized_share_observation_shape()[0]])
         else:
-            raise NotImplementedError("Not implemented for multiple user")
+            for i in range(self.num_agents):
+                self.action_space.append(Discrete(self.num_moves()))
+                self.observation_space.append(
+                    [self.vectorized_observation_shape()[0]])
+                self.share_observation_space.append(
+                    [self.vectorized_share_observation_shape()[0]])
 
 
     def reset_agent(self, agent):
@@ -220,7 +225,12 @@ class abrEnv(Environment):
         obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
         
         done = self.dones
-        info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf, 'time_stamp':self.time_stamp, 'reward':reward, 'agent': agent}
+        info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate],
+                'rebuffer': rebuf, 
+                'time_stamp':self.time_stamp, 
+                'reward':reward, 
+                'agent': agent,
+                'done': end_of_video}
         reward = self.rewards
 
         if end_of_video:
