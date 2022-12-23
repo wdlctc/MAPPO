@@ -89,14 +89,17 @@ class abrEnv(Environment):
             "CHUNK_TIL_VIDEO_END_CAP": 48.0,
             "REBUF_PENALTY": 4.3,  # 1 sec rebuffering -> 3 Mbps
             "SMOOTH_PENALTY": 1,
-            "DEFAULT_QUALITY": 1  # default video quality without agent
+            "DEFAULT_QUALITY": 1,
+            "num_agents": self.num_agents
         }
 
         self.net_env = abrenv.Environment(self.config)
 
         self.last_bit_rate = self.config["DEFAULT_QUALITY"]
-        self.buffer_size = 0
-        self.state = np.zeros(self.config["S_INFO"] * self.config["S_LEN"])
+        self.buffer_size = [0 for _ in range(self.num_agents)]
+        self.state = [np.zeros((self.config["S_INFO"], self.config["S_LEN"]))for _ in range(self.num_agents)]
+        self.dones = [False for _ in range(self.num_agents)]
+        self.rewards = [[0] for _ in range(self.num_agents)]
 
         self.action_space = []
         self.observation_space = []
@@ -111,23 +114,20 @@ class abrEnv(Environment):
         else:
             raise NotImplementedError("Not implemented for multiple user")
 
-    def reset(self):
-        self.time_stamp = 0
-        self.last_bit_rate = self.config["DEFAULT_QUALITY"]
-        self.buffer_size = 0.
-        self.state = np.zeros((self.config["S_INFO"], self.config["S_LEN"]))
-        bit_rate = self.last_bit_rate
-        sat = 0
-        delay, sleep_time, self.buffer_size, rebuf, \
+
+    def reset_agent(self, agent):
+        bit_rate = self.config["DEFAULT_QUALITY"]
+        delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
-            end_of_video, video_chunk_remain = \
-            self.net_env.get_video_chunk(bit_rate, sat)
-        state = np.roll(self.state, -1, axis=1)
+            end_of_video, video_chunk_remain, \
+            next_sat_bw = \
+            self.net_env.get_video_chunk(bit_rate, agent)
+        state = np.roll(self.state[agent], -1, axis=1)
 
         # this should be S_INFO number of terms
         state[0, -1] = self.config["VIDEO_BIT_RATE"][bit_rate] / \
             float(np.max(self.config["VIDEO_BIT_RATE"]))  # last quality
-        state[1, -1] = self.buffer_size / self.config["BUFFER_NORM_FACTOR"]  # 10 sec
+        state[1, -1] = self.buffer_size[agent] / self.config["BUFFER_NORM_FACTOR"]  # 10 sec
         state[2, -1] = float(video_chunk_size) / \
             float(delay) / self.config["M_IN_K"]  # kilo byte / ms
         state[3, -1] = float(delay) / self.config["M_IN_K"] / self.config["BUFFER_NORM_FACTOR"]  # 10 sec
@@ -135,27 +135,53 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
-        self.state = state
+
+        self.state[agent] = state
+        
+        return self.state[agent]
+
+    def reset(self):
+
+        self.net_env.reset()
+        self.time_stamp = 0
+        self.last_bit_rate = self.config["DEFAULT_QUALITY"]
+
+        self.buffer_size = [0 for _ in range(self.num_agents)]
+        self.state = [np.zeros((self.config["S_INFO"] , self.config["S_LEN"]))for _ in range(self.num_agents)]
+
+        bit_rate = self.last_bit_rate
+        sat = 0
+
+        for agent in range(self.num_agents):
+            self.reset_agent(agent)
+        
+        agent = self.net_env.get_first_agent()
 
         obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
-        obs[0][0] = state[0, -1]
-        obs[0][1] = state[1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = state[2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = state[3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[5, -1]
+        obs[0][0] = self.state[agent][0, -1]
+        obs[0][1] = self.state[agent][1, -1]
+        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
+        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
+        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
+        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
         
 
         return obs
 
     def step(self, action):
         action = int(action[0])
+
         bit_rate = int(action) % self.config["A_DIM"]
         sat = int(action) // self.config["A_DIM"]
-        delay, sleep_time, self.buffer_size, rebuf, \
+        agent = self.net_env.get_first_agent()
+
+        self.net_env.set_satellite(agent, sat)
+
+        delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
-            end_of_video, video_chunk_remain = \
-            self.net_env.get_video_chunk(bit_rate, sat)
+            end_of_video, video_chunk_remain, \
+            next_sat_bw = \
+            self.net_env.get_video_chunk(bit_rate, agent)
             
         self.time_stamp += delay  # in ms
         self.time_stamp += sleep_time  # in ms
@@ -165,13 +191,16 @@ class abrEnv(Environment):
                  - self.config["REBUF_PENALTY"] * rebuf \
                  - self.config["SMOOTH_PENALTY"] * np.abs(self.config["VIDEO_BIT_RATE"][bit_rate] -
                                         self.config["VIDEO_BIT_RATE"][self.last_bit_rate]) / self.config["M_IN_K"]
+        self.dones[agent] = end_of_video
+        self.rewards[agent][0] = reward
+        
         self.last_bit_rate = bit_rate
-        state = np.roll(self.state, -1, axis=1)
+        state = np.roll(self.state[agent], -1, axis=1)
 
         # this should be S_INFO number of terms
         state[0, -1] = self.config["VIDEO_BIT_RATE"][bit_rate] / \
             float(np.max(self.config["VIDEO_BIT_RATE"]))  # last quality
-        state[1, -1] = self.buffer_size / self.config["BUFFER_NORM_FACTOR"]  # 10 sec
+        state[1, -1] = self.buffer_size[agent] / self.config["BUFFER_NORM_FACTOR"]  # 10 sec
         state[2, -1] = float(video_chunk_size) / \
             float(delay) / self.config["M_IN_K"]  # kilo byte / ms
         state[3, -1] = float(delay) / self.config["M_IN_K"] / self.config["BUFFER_NORM_FACTOR"]  # 10 sec
@@ -179,19 +208,20 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
-        self.state = state
+        self.state[agent] = state
 
+        agent = self.net_env.get_first_agent()
         obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
-        obs[0][0] = state[0, -1]
-        obs[0][1] = state[1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = state[2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = state[3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[5, -1]
+        obs[0][0] = self.state[agent][0, -1]
+        obs[0][1] = self.state[agent][1, -1]
+        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
+        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
+        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
+        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
         
-        done = np.array([end_of_video] * self.num_agents)
-        info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf, 'time_stamp':self.time_stamp, 'reward':reward}
-        reward = [[reward]] * self.num_agents
+        done = self.dones
+        info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf, 'time_stamp':self.time_stamp, 'reward':reward, 'agent': agent}
+        reward = self.rewards
 
         if end_of_video:
             state = np.zeros((self.config["S_INFO"], self.config["S_LEN"]))
