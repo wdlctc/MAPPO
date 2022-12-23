@@ -258,13 +258,29 @@ class Environment:
         self.next_sat_id = [[] for _ in range(self.num_agents)]
         self.delay = [0 for _ in range(self.num_agents)]
         
-        # pick a random trace file
-        self.trace_idx = np.random.randint(len(self.all_cooked_time))
-        if self.trace_idx >= len(self.all_cooked_time):
-            self.trace_idx = 0     
+        while True:
+            # pick a random trace file
+            self.trace_idx = np.random.randint(len(self.all_cooked_time))
             
-        self.cooked_time = self.all_cooked_time[self.trace_idx]
-        self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+            self.cooked_time = self.all_cooked_time[self.trace_idx]
+            self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+            
+            for sat_id, sat_bw in self.cooked_bw.items():
+                length = len(sat_bw)
+                break
+            for i in range(length):
+                result = []
+                for sat_id, sat_bw in self.cooked_bw.items():
+                    if sat_bw[i] > 0:
+                        result.append(sat_bw[i])
+                if len(result) < self.num_agents:
+                    break
+            if len(result) < self.num_agents:
+                continue
+            if self.trace_idx >= len(self.all_cooked_time):
+                self.trace_idx = 0     
+            break
+                
 
         self.mahimahi_ptr = [1 for _ in range(self.num_agents)]
         self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]

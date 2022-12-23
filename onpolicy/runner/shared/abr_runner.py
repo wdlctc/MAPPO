@@ -35,11 +35,12 @@ class abrRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
+
                 for info in infos:
                     if 'done' in info.keys() and not info['done']:
                         if 'reward' in info.keys():
                             self.rewards.append(info['reward'])
-                
+
             # compute return and update network
             self.compute()
             train_infos = self.train()
