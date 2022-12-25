@@ -145,6 +145,18 @@ class abrEnv(Environment):
         
         return self.state[agent]
 
+    def get_obs_from_state(self, agent):
+        
+        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
+        obs[0][0] = self.state[agent][0, -1]
+        obs[0][1] = self.state[agent][1, -1]
+        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
+        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
+        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
+        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
+
+        return obs
+
     def reset(self):
 
         self.net_env.reset()
@@ -162,14 +174,13 @@ class abrEnv(Environment):
         
         agent = self.net_env.get_first_agent()
 
-        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
-        obs[0][0] = self.state[agent][0, -1]
-        obs[0][1] = self.state[agent][1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
-        
+        agent_turn = np.zeros((1,self.num_agents), dtype=np.int).tolist()
+        agent_turn[0][agent] = 1
+
+        obs = self.get_obs_from_state(agent)
+        share_obs = [self.get_obs_from_state(agent) for i in range(self.num_agents)]
+        concat_obs = np.concatenate(share_obs, axis=1)
+        share_obs = np.concatenate((concat_obs, agent_turn), axis=1)
 
         return obs
 
@@ -216,13 +227,11 @@ class abrEnv(Environment):
         self.state[agent] = state
 
         agent = self.net_env.get_first_agent()
-        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
-        obs[0][0] = self.state[agent][0, -1]
-        obs[0][1] = self.state[agent][1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
+        
+        obs = self.get_obs_from_state(agent)
+        # share_obs = [self.get_obs_from_state(agent) for i in range(self.num_agents)]
+        # concat_obs = np.concatenate(share_obs, axis=1)
+        # share_obs = np.concatenate((concat_obs, agent_turn), axis=1)
         
         done = self.dones
         info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate],
@@ -257,7 +266,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
+        return [25]
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).
@@ -265,7 +274,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
+        return [25]
 
     def close(self):
         pass

@@ -5,7 +5,7 @@ exp="check"
 seed_max=1
 ulimit -n 22222
 
-num_agents=4
+num_agents=1
 
 echo "env is ${env}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;

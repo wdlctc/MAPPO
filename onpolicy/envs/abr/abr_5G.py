@@ -185,9 +185,15 @@ class abrEnv(Environment):
         obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = state[3, :]
         obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[4, :self.config["A_DIM"]]
         obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = state[5, -1]
+
+        shared_obs = obs
         
         done = np.array([end_of_video] * self.num_agents)
-        info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate], 'rebuffer': rebuf, 'time_stamp':self.time_stamp, 'reward':reward}
+        info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate],
+                'rebuffer': rebuf, 
+                'time_stamp':self.time_stamp, 
+                'reward':reward, 
+                'done': end_of_video}
         reward = [[reward]] * self.num_agents
 
         if end_of_video:
