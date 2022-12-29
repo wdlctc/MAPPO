@@ -111,6 +111,7 @@ class abrEnv(Environment):
         self.buffer_size = [0 for _ in range(self.num_agents)]
         self.state = [np.zeros((self.config["S_INFO"], self.config["S_LEN"]))for _ in range(self.num_agents)]
         self.sat_decision_log = [[] for _ in range(self.num_agents)]
+        # FIXME: I remember LC wrote more codes after this? (compared to original pensive-PPO)
     
     def reset_agent(self, agent):
         bit_rate = self.config["DEFAULT_QUALITY"]
@@ -155,13 +156,13 @@ class abrEnv(Environment):
 
     def get_obs_from_state(self, agent):
         
+        # TODO: this function didn't change 
         obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
         obs[0][0] = self.state[agent][0, -1]
         obs[0][1] = self.state[agent][1, -1]
         obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
         obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
         obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
-        # FIXME: video_chunk_remain should be a float number, len=1
         obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]:3+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
         obs[0][3+self.config["S_LEN"]*2+self.config["A_DIM"]:3+self.config["S_LEN"]*2+self.config["A_DIM"]+self.config['SAT_DIM']] = self.state[agent][6, :self.config['SAT_DIM']]
         return obs
