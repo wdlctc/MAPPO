@@ -1,5 +1,6 @@
 import numpy as np
-from . import core as abrenv
+from . import core_implicit as abrenv
+from . import load_trace
 from gym.spaces import Discrete
 # -------------------------------------------------------------------------------
 # Environment API
@@ -80,9 +81,12 @@ class abrEnv(Environment):
         self.config = {
             "seed": self._seed,
             "DEFAULT_QUALITY": 1, 
-            "S_INFO": 6, #FIXME: why kyoungjun set to 6+1+4
+            "S_INFO": 6+1+4, #FIXME: why kyoungjun set to 6+1+4
             "S_LEN": 8,
             "A_DIM": 6,
+            "PAST_LEN": 8,
+            "A_SAT" : 2,
+            "SAT_DIM" : 2, # SAT_DIM = A_SAT
             "VIDEO_BIT_RATE": np.array([300., 750., 1200., 1850., 2850., 4300.]),
             "BUFFER_NORM_FACTOR": 10.0,
             "M_IN_K": 1000.0,
@@ -91,42 +95,29 @@ class abrEnv(Environment):
             "SMOOTH_PENALTY": 1,
             "DEFAULT_QUALITY": 1,
             "num_agents": self.num_agents,
-            "A_SAT" : 2,
-            "SAT_DIM" : 2 # SAT_DIM = A_SAT
         }
 
-        self.net_env = abrenv.Environment(self.config)
+        self.is_handover = False
+        all_cooked_time, all_cooked_bw, _ = load_trace.load_trace()
+        param = {
+            'seed': self.config["seed"],
+            'num_agents': self.config["num_agents"],
+            'all_cooked_time': all_cooked_time,
+            'all_cooked_bw': all_cooked_bw,
+        }
+        self.net_env = abrenv.Environment(param)
 
         self.last_bit_rate = self.config["DEFAULT_QUALITY"]
         self.buffer_size = [0 for _ in range(self.num_agents)]
         self.state = [np.zeros((self.config["S_INFO"], self.config["S_LEN"]))for _ in range(self.num_agents)]
-        self.dones = [False for _ in range(self.num_agents)]
-        self.rewards = [[0] for _ in range(self.num_agents)]
-
-        self.action_space = []
-        self.observation_space = []
-        self.share_observation_space = []
-
-        if self.num_agents == 1:
-            self.action_space.append(Discrete(self.num_moves()))
-            self.observation_space.append(
-                [self.vectorized_observation_shape()[0]])
-            self.share_observation_space.append(
-                [self.vectorized_share_observation_shape()[0]])
-        else:
-            for i in range(self.num_agents):
-                self.action_space.append(Discrete(self.num_moves()))
-                self.observation_space.append(
-                    [self.vectorized_observation_shape()[0]])
-                self.share_observation_space.append(
-                    [self.vectorized_share_observation_shape()[0]])
+        self.sat_decision_log = [[] for _ in range(self.num_agents)]
     
     def reset_agent(self, agent):
         bit_rate = self.config["DEFAULT_QUALITY"]
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            next_sat_bw = \
+            _, next_sat_bw_logs, cur_sat_user_num, next_sat_user_nums, cur_sat_bw_logs, connected_time = \
             self.net_env.get_video_chunk(bit_rate, agent)
         state = np.roll(self.state[agent], -1, axis=1)
 
@@ -141,7 +132,22 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
-        state[6, :self.config['SAT_DIM']] = np.array(next_sat_bw)
+        if len(next_sat_bw_logs) < self.config['PAST_LEN']:
+            next_sat_bw_logs = [0] * (self.config['PAST_LEN'] - len(next_sat_bw_logs)) + next_sat_bw_logs
+        state[6, :self.config['PAST_LEN']] = np.array(next_sat_bw_logs[:self.config['PAST_LEN']])
+
+        if len(cur_sat_bw_logs) < self.config['PAST_LEN']:
+            cur_sat_bw_logs = [0] * (self.config['PAST_LEN'] - len(cur_sat_bw_logs)) + cur_sat_bw_logs
+
+        state[7, :self.config['PAST_LEN']] = np.array(cur_sat_bw_logs[:self.config['PAST_LEN']])
+        if self.is_handover:
+            state[8:9, 0:self.config['S_LEN']] = np.zeros((1, self.config['S_LEN']))
+            state[9:10, 0:self.config['S_LEN']] = np.zeros((1, self.config['S_LEN']))
+
+        state[8:9, -1] = np.array(cur_sat_user_num) / 10
+        state[9:10, -1] = np.array(next_sat_user_nums) / 10
+
+        state[10, :2] = [float(connected_time[0]) / self.config['BUFFER_NORM_FACTOR'] / 10, float(connected_time[1]) / self.config['BUFFER_NORM_FACTOR'] / 10]
 
         self.state[agent] = state
         
