@@ -99,6 +99,7 @@ class abrEnv(Environment):
 
         self.is_handover = False
         all_cooked_time, all_cooked_bw, _ = load_trace.load_trace()
+        assert len(all_cooked_time) == len(all_cooked_bw)
         param = {
             'seed': self.config["seed"],
             'num_agents': self.config["num_agents"],
@@ -235,7 +236,7 @@ class abrEnv(Environment):
         sat = int(action) // self.config["A_DIM"]
         agent = self.net_env.get_first_agent()
 
-        #self.net_env.set_satellite(agent, sat) # FIXME: put this in training?
+        self.set_sat(agent, sat)
 
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
