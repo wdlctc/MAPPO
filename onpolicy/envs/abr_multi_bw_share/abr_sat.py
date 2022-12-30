@@ -81,7 +81,7 @@ class abrEnv(Environment):
         self.config = {
             "seed": self._seed,
             "DEFAULT_QUALITY": 1, 
-            "S_INFO": 6+1+4, #FIXME: why kyoungjun set to 6+1+4
+            "S_INFO": 6+1+4,
             "S_LEN": 8,
             "A_DIM": 6,
             "PAST_LEN": 8,
@@ -111,7 +111,27 @@ class abrEnv(Environment):
         self.buffer_size = [0 for _ in range(self.num_agents)]
         self.state = [np.zeros((self.config["S_INFO"], self.config["S_LEN"]))for _ in range(self.num_agents)]
         self.sat_decision_log = [[] for _ in range(self.num_agents)]
-        # FIXME: I remember LC wrote more codes after this? (compared to original pensive-PPO)
+
+        self.dones = [False for _ in range(self.num_agents)] # FIXME: don't know if is necessary
+        self.rewards = [[0] for _ in range(self.num_agents)]
+
+        self.action_space = []
+        self.observation_space = []
+        self.share_observation_space = []
+
+        if self.num_agents == 1:
+            self.action_space.append(Discrete(self.num_moves()))
+            self.observation_space.append(
+                [self.vectorized_observation_shape()[0]])
+            self.share_observation_space.append(
+                [self.vectorized_share_observation_shape()[0]])
+        else:
+            for i in range(self.num_agents):
+                self.action_space.append(Discrete(self.num_moves()))
+                self.observation_space.append(
+                    [self.vectorized_observation_shape()[0]])
+                self.share_observation_space.append(
+                    [self.vectorized_share_observation_shape()[0]])
     
     def reset_agent(self, agent):
         bit_rate = self.config["DEFAULT_QUALITY"]
@@ -156,15 +176,23 @@ class abrEnv(Environment):
 
     def get_obs_from_state(self, agent):
         
-        # TODO: this function didn't change 
-        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
+        # copy param
+        s_len = self.config["S_LEN"]
+        a_dim = self.config["A_DIM"]
+        past_len = self.config['PAST_LEN']
+        obs = np.zeros((1, 5+s_len*4+a_dim+past_len*2))
         obs[0][0] = self.state[agent][0, -1]
         obs[0][1] = self.state[agent][1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]:3+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
-        obs[0][3+self.config["S_LEN"]*2+self.config["A_DIM"]:3+self.config["S_LEN"]*2+self.config["A_DIM"]+self.config['SAT_DIM']] = self.state[agent][6, :self.config['SAT_DIM']]
+        obs[0][2 : 2+s_len] = self.state[agent][2, :]
+        obs[0][2+s_len : 2+s_len*2] = self.state[agent][3, :]
+        obs[0][2+s_len*2 : 2+s_len*2+a_dim] = self.state[agent][4, :a_dim]
+        obs[0][2+s_len*2+a_dim : 3+s_len*2+a_dim] = self.state[agent][5, -1]
+        obs[0][3+s_len*2+a_dim : 3+s_len*2+a_dim+past_len] = self.state[agent][6, :past_len]
+        obs[0][3+s_len*2+a_dim+past_len : 3+s_len*2+a_dim+past_len*2] = self.state[agent][7, :past_len]
+        obs[0][3+s_len*2+a_dim+past_len*2 : 3+s_len*3+a_dim+past_len*2] = self.state[agent][8, -1]
+        obs[0][3+s_len*3+a_dim+past_len*2 : 3+s_len*4+a_dim+past_len*2] = self.state[agent][9, -1]
+        obs[0][3+s_len*4+a_dim+past_len*2 : 5+s_len*4+a_dim+past_len*2] = self.state[agent][10, :2]
+        
         return obs
 
     def reset(self):
@@ -191,18 +219,28 @@ class abrEnv(Environment):
 
         return obs
 
+    def set_sat(self, agent, sat):
+        if sat == 0:
+            self.is_handover = False
+        elif sat == 1:
+            self.is_handover = True
+        else:
+            print("Never!")
+        self.net_env.set_satellite(agent, sat)
+        self.sat_decision_log[agent].append(sat)
+
     def step(self, action):
         action = int(action[0])
         bit_rate = int(action) % self.config["A_DIM"]
         sat = int(action) // self.config["A_DIM"]
         agent = self.net_env.get_first_agent()
 
-        self.net_env.set_satellite(agent, sat) # FIXME: what's the meaning?
+        #self.net_env.set_satellite(agent, sat) # FIXME: put this in training?
 
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            next_sat_bw = \
+            next_sat_bw, next_sat_bw_logs, cur_sat_user_num, next_sat_user_nums, cur_sat_bw_logs, connected_time = \
             self.net_env.get_video_chunk(bit_rate, agent)
             
         self.time_stamp += delay  # in ms
@@ -213,7 +251,7 @@ class abrEnv(Environment):
                  - self.config["REBUF_PENALTY"] * rebuf \
                  - self.config["SMOOTH_PENALTY"] * np.abs(self.config["VIDEO_BIT_RATE"][bit_rate] -
                                         self.config["VIDEO_BIT_RATE"][self.last_bit_rate]) / self.config["M_IN_K"]
-        self.dones[agent] = end_of_video
+        self.dones[agent] = end_of_video # I think is necessary 'cause return dones and rewards for multi agents
         self.rewards[agent][0] = reward
 
         self.last_bit_rate = bit_rate
@@ -230,7 +268,21 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
-        state[6, :self.config["SAT_DIM"]] = np.array(next_sat_bw)
+        if len(next_sat_bw_logs) < self.config['PAST_LEN']:
+            next_sat_bw_logs = [0] * (self.config['PAST_LEN'] - len(next_sat_bw_logs)) + next_sat_bw_logs
+        state[6, :self.config["PAST_LEN"]] = np.array(next_sat_bw_logs[:self.config['PAST_LEN']]) / 10
+        if len(cur_sat_bw_logs) < self.config["PAST_LEN"]:
+            cur_sat_bw_logs = [0] * (self.config["PAST_LEN"] - len(cur_sat_bw_logs)) + cur_sat_bw_logs
+
+        state[7, :self.config["PAST_LEN"]] = np.array(cur_sat_bw_logs[:self.config["PAST_LEN"]]) / 10
+        if self.is_handover:
+            state[8:9, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
+            state[9:10, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
+
+        state[8:9, -1] = np.array(cur_sat_user_num) / 10
+        state[9:10, -1] = np.array(next_sat_user_nums) / 10
+        state[10, :2] = [float(connected_time[0]) / self.config["BUFFER_NORM_FACTOR"] / 10, float(connected_time[1]) / self.config["BUFFER_NORM_FACTOR"] / 10]
+
         self.state[agent] = state
 
         obs = self.get_obs_from_state(agent)
@@ -269,7 +321,7 @@ class abrEnv(Environment):
           Integer, number of moves.
         """
         #return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
-        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]+self.config['SAT_DIM']] # new shape
+        return [5+self.config["S_LEN"]*4+self.config["A_DIM"]+self.config['PAST_LEN']*2] # new shape
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).
@@ -277,7 +329,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]+self.config['SAT_DIM']]
+        return [5+self.config["S_LEN"]*4+self.config["A_DIM"]+self.config['PAST_LEN']*2]
 
     def close(self):
         pass
