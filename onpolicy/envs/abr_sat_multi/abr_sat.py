@@ -147,7 +147,7 @@ class abrEnv(Environment):
 
     def get_obs_from_state(self, agent):
         
-        obs = np.zeros((1, 4+self.config["S_LEN"]*2+self.config["A_DIM"]))
+        obs = np.zeros((1, 5+self.config["S_LEN"]*2+self.config["A_DIM"]))
         obs[0][0] = self.state[agent][0, -1]
         obs[0][1] = self.state[agent][1, -1]
         obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
