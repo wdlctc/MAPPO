@@ -1,5 +1,4 @@
 # add queuing delay into halo
-import os
 import numpy as np
 from . import core as abrenv
 from . import load_trace
@@ -23,7 +22,7 @@ RANDOM_SEED = 42
 RAND_RANGE = 1000
 EPS = 1e-6
 
-NUM_AGENTS = 2
+NUM_AGENTS = 16
 SAT_DIM = A_SAT
 
 class ABREnv():
@@ -157,5 +156,5 @@ class ABREnv():
 
         self.state[agent] = state
 
-        #observation, reward, done, info = env.step(action)
+        #observation, reward, done, info = ppo_spec.step(action)
         return state, reward, end_of_video, {'bitrate': VIDEO_BIT_RATE[bit_rate], 'rebuffer': rebuf}

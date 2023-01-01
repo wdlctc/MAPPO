@@ -314,24 +314,6 @@ class Environment:
                         
         return user
 
-    def get_best_sat_id(self, agent, mahimahi_ptr=None):
-        best_sat_id = None
-        best_sat_bw = 0
-
-        if mahimahi_ptr is None:
-            mahimahi_ptr = self.mahimahi_ptr[agent]
-
-        for sat_id, sat_bw in self.cooked_bw.items():
-            if best_sat_bw < sat_bw[mahimahi_ptr]:
-                if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
-                    best_sat_id = sat_id
-                    best_sat_bw = sat_bw[mahimahi_ptr]
-        
-        if best_sat_id == None:
-            best_sat_id = self.cur_sat_id[agent]
-        return best_sat_id
-
-
     def get_all_sat_id(self, agent, mahimahi_ptr=None):
         best_sat_id = None
         best_sat_bw = 0
@@ -357,3 +339,22 @@ class Environment:
         list1.append(best_sat_bw), list2.append(best_sat_id)
         
         return list1, list2
+
+
+    def get_best_sat_id(self, agent, mahimahi_ptr=None):
+        best_sat_id = None
+        best_sat_bw = 0
+
+        if mahimahi_ptr is None:
+            mahimahi_ptr = self.mahimahi_ptr[agent]
+
+        for sat_id, sat_bw in self.cooked_bw.items():
+            if best_sat_bw < sat_bw[mahimahi_ptr]:
+                if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
+                    best_sat_id = sat_id
+                    best_sat_bw = sat_bw[mahimahi_ptr]
+        
+        if best_sat_id == None:
+            best_sat_id = self.cur_sat_id[agent]
+        return best_sat_id
+
