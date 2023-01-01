@@ -80,7 +80,7 @@ class abrEnv(Environment):
         self.config = {
             "seed": self._seed,
             "DEFAULT_QUALITY": 1, 
-            "S_INFO": 7,
+            "S_INFO": 9,
             "S_LEN": 8,
             "A_DIM": 6,
             "VIDEO_BIT_RATE": np.array([300., 750., 1200., 1850., 2850., 4300.]),
@@ -125,7 +125,7 @@ class abrEnv(Environment):
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            next_sat_bw = \
+            next_sat_bw, sat_log = \
             self.net_env.get_video_chunk(bit_rate, agent)
         state = np.roll(self.state[agent], -1, axis=1)
 
@@ -140,6 +140,9 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
+        state[6, :2] = np.array(next_sat_bw)
+        state[7, :5] = np.array(sat_log[0])
+        state[8, :5] = np.array(sat_log[1])
 
         self.state[agent] = state
         
@@ -148,14 +151,25 @@ class abrEnv(Environment):
     def get_obs_from_state(self, agent):
         
         obs = np.zeros((1, 5+self.config["S_LEN"]*2+self.config["A_DIM"]))
-        obs[0][0] = self.state[agent][0, -1]
-        obs[0][1] = self.state[agent][1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
-        obs[0][3+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 0]
-        obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
+        obs[0] = np.concatenate((
+            np.array(self.state[agent][0, -1:]),
+            np.array(self.state[agent][1, -1:]),
+            np.array(self.state[agent][2, :]),
+            np.array(self.state[agent][3, :]),
+            np.array(self.state[agent][4, :self.config["A_DIM"]]),
+            np.array(self.state[agent][5, -1:]),
+            np.array(self.state[agent][6, :2])
+        ), axis=0)
+        # obs[0][0] = self.state[agent][0, -1]
+        # obs[0][1] = self.state[agent][1, -1]
+        # obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
+        # obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
+        # obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
+        # obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
+        # obs[0][3+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 0]
+        # obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
+        # obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
+        # obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
 
         return obs
 
@@ -200,7 +214,7 @@ class abrEnv(Environment):
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            next_sat_bw = \
+            next_sat_bw, sat_log = \
             self.net_env.get_video_chunk(bit_rate, agent)
             
         self.time_stamp[agent] += delay  # in ms
@@ -229,6 +243,8 @@ class abrEnv(Environment):
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
         state[6, :2] = np.array(next_sat_bw)
+        state[7, :5] = np.array(sat_log[0])
+        state[8, :5] = np.array(sat_log[1])
 
         self.state[agent] = state
 
