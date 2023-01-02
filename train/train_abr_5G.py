@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 import sys
-import sys
-sys.path.insert(0,'/home/v-cluo/xuyi-MAPPO/LC-MAPPO')
-print(sys.path)
 import os
 import wandb
 import socket

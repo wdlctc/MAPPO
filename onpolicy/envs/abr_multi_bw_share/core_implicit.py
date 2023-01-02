@@ -1,6 +1,6 @@
 import os
+from pathlib import Path
 import numpy as np
-from . import load_trace
 import copy
 
 MILLISECONDS_IN_SECOND = 1000.0
@@ -18,7 +18,8 @@ LINK_RTT = 80  # millisec
 PACKET_SIZE = 1500  # bytes
 NOISE_LOW = 0.9
 NOISE_HIGH = 1.1
-VIDEO_SIZE_FILE = os.path.dirname(os.path.abspath(__file__)) + '/envivio/video_size_'
+VIDEO_SIZE_FILE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
+    + '/dataset/envivio/video_size_'
 
 # LEO SETTINGS
 HANDOVER_DELAY = 0.2  # sec
@@ -387,7 +388,7 @@ class Environment:
                 if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
                     best_sat_id = sat_id
                     best_sat_bw = avg_bw_of_5t
-                    best_bw_log = copy.copy(avg_bw_of_5t)
+                    best_bw_log = copy.copy(bw_list_of_5t)
 
         if best_sat_id == None:
             best_sat_id = self.cur_sat_id[agent]

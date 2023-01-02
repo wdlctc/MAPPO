@@ -1,8 +1,9 @@
 import os
+from pathlib import Path
 import csv
 
-COOKED_TRACE_FOLDER = os.path.dirname(os.path.abspath(__file__)) + '/train/'
-
+COOKED_TRACE_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
+    + '/dataset/train/'
 
 # LEO SETTINGS
 HANDOVER_DELAY = 0.2  # sec

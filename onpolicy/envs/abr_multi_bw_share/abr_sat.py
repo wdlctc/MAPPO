@@ -139,7 +139,8 @@ class abrEnv(Environment):
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            _, next_sat_bw_logs, cur_sat_user_num, next_sat_user_nums, cur_sat_bw_logs, connected_time = \
+            _, next_sat_bw_logs, cur_sat_user_num, \
+            next_sat_user_nums, cur_sat_bw_logs, connected_time = \
             self.net_env.get_video_chunk(bit_rate, agent)
         state = np.roll(self.state[agent], -1, axis=1)
 
