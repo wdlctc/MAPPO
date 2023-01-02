@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from . import load_trace
+import copy
 
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000000.0
@@ -370,10 +371,12 @@ class Environment:
                     bw_list_of_5timestamp.append(sat_bw[mahimahi_ptr - i] / num_of_user)
         avg_bw_of_5timestamp = sum(bw_list_of_5timestamp) / len(bw_list_of_5timestamp)
         better_sat_bandwidth.append(avg_bw_of_5timestamp), better_sat_id.append(self.cur_sat_id[agent])
+        cur_bw_log = copy.copy(bw_list_of_5timestamp)
 
         # then go over all sats to find better bw and according id
         best_sat_id = None
         best_sat_bw = 0
+        best_bw_log = []
         for sat_id, sat_bw in self.cooked_bw.items():
             if sat_id == self.cur_sat_id[agent]:
                 continue
@@ -394,13 +397,14 @@ class Environment:
                 if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
                     best_sat_id = sat_id
                     best_sat_bw = avg_bw_of_5timestamp
+                    best_bw_log = copy.copy(bw_list_of_5timestamp)
 
         if best_sat_id == None:
             best_sat_id = self.cur_sat_id[agent]
         # append best solution as better choice -> also next choice
         better_sat_bandwidth.append(best_sat_bw), better_sat_id.append(best_sat_id)
-        
-        return better_sat_bandwidth, better_sat_id
+        # TODO: after uptime_list...
+        return cur_bw_log, better_sat_bandwidth, better_sat_id, best_bw_log
 
     def update_sat_info(self, sat_id, mahimahi_ptr, variation):
         # update sat info

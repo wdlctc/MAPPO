@@ -227,7 +227,8 @@ class Environment:
 
         self.video_chunk_counter[agent] += 1
         video_chunk_remain = TOTAL_VIDEO_CHUNCK - self.video_chunk_counter[agent]
-        # TODO: bookmark
+        # TODO: bookmark; these returned values are useful in abr_sat, except for other_sat_*
+        # -> understand the meaning
         cur_sat_bw_logs, next_sat_bandwidth, next_sat_id, next_sat_bw_logs, connected_time, other_sat_users\
             , other_sat_bw_logs = self.get_sat_info(agent, self.mahimahi_ptr[agent])
         
