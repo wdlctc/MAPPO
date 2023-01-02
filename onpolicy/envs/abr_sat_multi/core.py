@@ -208,7 +208,7 @@ class Environment:
         self.video_chunk_counter[agent] += 1
         video_chunk_remain = TOTAL_VIDEO_CHUNCK - self.video_chunk_counter[agent]
         
-        self.next_sat_bandwidth[agent], self.next_sat_id[agent] = self.get_all_sat_id(agent, self.mahimahi_ptr[agent] - 1)
+        self.next_sat_bandwidth[agent], self.next_sat_id[agent], sat_log = self.get_all_sat_id(agent, self.mahimahi_ptr[agent] - 1)
 
         if self.video_chunk_counter[agent] >= TOTAL_VIDEO_CHUNCK:
             self.end_of_video[agent] = True
@@ -244,7 +244,7 @@ class Environment:
             next_video_chunk_sizes, \
             self.end_of_video[agent], \
             video_chunk_remain, \
-            self.next_sat_bandwidth[agent]
+            self.next_sat_bandwidth[agent], sat_log
            
     def reset(self):
         
@@ -314,6 +314,70 @@ class Environment:
                         
         return user
 
+    def get_average_bw(self, sat_id, mahimahi_ptr):
+        sat_bw = self.cooked_bw[sat_id]
+        bw_list = []
+        available_bw_list = []
+        for i in range(5):
+            if mahimahi_ptr - i >= 0:
+                bw_list.append(sat_bw[mahimahi_ptr-i])
+                available_bw_list.append(sat_bw[mahimahi_ptr-i])
+            else:
+                bw_list.append(0)
+        return bw_list, sum(available_bw_list) / len(available_bw_list)
+
+    def get_all_average_bw(self, mahimahi_ptr):
+        all_info_list = []
+        for sat_id, sat_bw in self.cooked_bw.items():
+            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr)
+            all_info_list.append({
+                'bw_list': bw_list,
+                'bw': bw,
+                'sat_id': sat_id
+            })
+        return all_info_list
+
+    def get_best_bw(self, mahimahi_ptr):
+
+        all_info_list = self.get_all_average_bw(mahimahi_ptr)
+        best_sat_bw = 0
+        best_sat_id = None
+        best_sat_list = []
+        for info in all_info_list:
+            bw = info['bw']
+            sat_id = info['sat_id']
+            sat_list = info['bw_list']
+            if best_sat_bw < bw:
+                if self.connection[sat_id][mahimahi_ptr + 1] == -1:
+                    best_sat_id = sat_id
+                    best_sat_bw = bw
+                    best_sat_list = sat_list
+        return best_sat_id, best_sat_bw, best_sat_list
+
+    def get_all_sat_id(self, agent, mahimahi_ptr=None):
+        best_sat_id = None
+        best_sat_bw = 0
+        
+        if mahimahi_ptr is None:
+            mahimahi_ptr = self.mahimahi_ptr[agent]
+        
+        sat_bw_list, sat_bw_his_list, sat_id_list = [], [], []
+        bw_list, bw = self.get_average_bw(self.cur_sat_id[agent], mahimahi_ptr)
+        best_sat_id, best_sat_bw, best_sat_list = self.get_best_bw(mahimahi_ptr)
+        
+        sat_bw_list.append(bw), sat_id_list.append(self.cur_sat_id[agent])
+        sat_bw_his_list.append(bw_list)
+
+        if best_sat_id == None:
+            best_sat_id = self.cur_sat_id[agent]
+            best_sat_bw = 0
+            best_sat_list = [0 for i in range(5)]
+        sat_bw_list.append(best_sat_bw), sat_id_list.append(best_sat_id)
+        sat_bw_his_list.append(best_sat_list)
+        
+        # print(self.get_all_average_bw(mahimahi_ptr), best_sat_list)
+        return sat_bw_list, sat_id_list, sat_bw_his_list
+
     def get_best_sat_id(self, agent, mahimahi_ptr=None):
         best_sat_id = None
         best_sat_bw = 0
@@ -331,29 +395,3 @@ class Environment:
             best_sat_id = self.cur_sat_id[agent]
         return best_sat_id
 
-
-    def get_all_sat_id(self, agent, mahimahi_ptr=None):
-        best_sat_id = None
-        best_sat_bw = 0
-        
-        if mahimahi_ptr is None:
-            mahimahi_ptr = self.mahimahi_ptr[agent]
-        
-        list1, list2 = [], []
-        bw_list = []
-        sat_bw = self.cooked_bw[self.cur_sat_id[agent]]
-        bw = sat_bw[mahimahi_ptr]
-        
-        list1.append(bw), list2.append(self.cur_sat_id[agent])
-
-        for sat_id, sat_bw in self.cooked_bw.items():
-            if best_sat_bw < sat_bw[mahimahi_ptr]:
-                if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
-                    best_sat_id = sat_id
-                    best_sat_bw = sat_bw[mahimahi_ptr]
-
-        if best_sat_id == None:
-            best_sat_id = self.cur_sat_id[agent]
-        list1.append(best_sat_bw), list2.append(best_sat_id)
-        
-        return list1, list2

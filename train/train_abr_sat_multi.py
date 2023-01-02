@@ -8,7 +8,7 @@ import torch
 from pathlib import Path
 from onpolicy.config import get_config
 from onpolicy.envs.abr_sat_multi.abr_sat import abrEnv
-from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
+from onpolicy.envs.env_wrappers import ShareSubprocVecEnv, ShareDummyVecEnv
 
 """Train script for abr on sat environment."""
 
@@ -34,10 +34,9 @@ def make_train_env(all_args):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ShareDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(
-            all_args.n_rollout_threads)])
+        return ShareSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
 def make_eval_env(all_args):
@@ -51,11 +50,10 @@ def make_eval_env(all_args):
                 raise NotImplementedError
             return env
         return init_env
-    if all_args.n_eval_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+    if all_args.n_rollout_threads == 1:
+        return ShareDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(
-            all_args.n_eval_rollout_threads)])
+        return ShareSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
 def main(args):
@@ -147,7 +145,7 @@ def main(args):
 
     # run experiments:
     if all_args.share_policy:
-        from onpolicy.runner.shared.abr_runner import abrRunner as Runner
+        from onpolicy.runner.shared.abr_runner_multi import abrRunner as Runner
     else:
         raise NotImplementedError
     

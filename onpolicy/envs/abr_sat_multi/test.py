@@ -1,161 +1,376 @@
-# add queuing delay into halo
-import os
 import numpy as np
-from . import core as abrenv
-from . import load_trace
 
-# bit_rate, buffer_size, next_chunk_size, bandwidth_measurement(throughput and time), chunk_til_video_end
-S_INFO = 6 + 1
-S_LEN = 8  # take how many frames in the past
-A_DIM = 6
-A_SAT = 2
-TRAIN_SEQ_LEN = 100  # take as a train batch
-MODEL_SAVE_INTERVAL = 100
-VIDEO_BIT_RATE = np.array([300., 750., 1200., 1850., 2850., 4300.])  # Kbps
-# VIDEO_BIT_RATE = [10000, 20000, 30000, 60000, 90000, 140000]  # Kbps
-BUFFER_NORM_FACTOR = 10.0
-CHUNK_TIL_VIDEO_END_CAP = 48.0
-M_IN_K = 1000.0
-REBUF_PENALTY = 4.3  # 1 sec rebuffering -> 3 Mbps
-SMOOTH_PENALTY = 1
-DEFAULT_QUALITY = 1  # default video quality without agent
+MILLISECONDS_IN_SECOND = 1000.0
+B_IN_MB = 1000000.0
+BITS_IN_BYTE = 8.0
 RANDOM_SEED = 42
-RAND_RANGE = 1000
-EPS = 1e-6
+VIDEO_CHUNCK_LEN = 4000.0  # millisec, every time add this amount to buffer
+BITRATE_LEVELS = 6
+TOTAL_VIDEO_CHUNCK = 48
+BUFFER_THRESH = 60.0 * MILLISECONDS_IN_SECOND  # millisec, max buffer limit
+DRAIN_BUFFER_SLEEP_TIME = 500.0  # millisec
+PACKET_PAYLOAD_PORTION = 0.95
+LINK_RTT = 80  # millisec
+PACKET_SIZE = 1500  # bytes
+NOISE_LOW = 0.9
+NOISE_HIGH = 1.1
+VIDEO_SIZE_FILE = './envivio/video_size_'
 
-NUM_AGENTS = 2
-SAT_DIM = A_SAT
+# LEO SETTINGS
+HANDOVER_DELAY = 0.2  # sec
+HANDOVER_WEIGHT = 1
+SCALE_VIDEO_SIZE_FOR_TEST = 20
+SCALE_VIDEO_LEN_FOR_TEST = 2
 
-class ABREnv():
+# Multi-user setting
+NUM_AGENTS = 16
 
-    def __init__(self, random_seed=RANDOM_SEED, num_agents=NUM_AGENTS):
-        self.num_agents = num_agents
-        # SAT_DIM = num_agents
-        # A_SAT = num_agents
-        # SAT_DIM = num_agents + 1
+class Environment:
+    def __init__(self, all_cooked_time, all_cooked_bw, random_seed=RANDOM_SEED, num_agents=NUM_AGENTS):
+        assert len(all_cooked_time) == len(all_cooked_bw)
 
         np.random.seed(random_seed)
-        all_cooked_time, all_cooked_bw, _ = load_trace.load_trace()
-        self.net_env = abrenv.Environment(all_cooked_time=all_cooked_time,
-                                          all_cooked_bw=all_cooked_bw,
-                                          random_seed=random_seed,
-                                          num_agents=self.num_agents)
+        self.num_agents = num_agents
 
-        self.last_bit_rate = DEFAULT_QUALITY
+        self.all_cooked_time = all_cooked_time
+        self.all_cooked_bw = all_cooked_bw
+        
+        self.all_cooked_remain = []
+        for trace_idx in range(len(self.all_cooked_bw)):
+            self.all_cooked_remain.append({})
+            for sat_id, sat_bw in self.all_cooked_bw[trace_idx].items():
+                self.all_cooked_remain[trace_idx][sat_id] = []
+                for index in range(len(sat_bw)):
+                    count = 0
+                    while index + count < len(sat_bw) and sat_bw[index] != 0:
+                        count += 1
+                    self.all_cooked_remain[trace_idx][sat_id].append(count)
+
+        # pick a random trace file
+        self.trace_idx = np.random.randint(len(self.all_cooked_time))
+        self.cooked_time = self.all_cooked_time[self.trace_idx]
+        self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+        self.cooked_remain = self.all_cooked_remain[self.trace_idx]
+
+        self.connection = {}
+        for sat_id, sat_bw in self.cooked_bw.items():
+            self.connection[sat_id] = [-1 for _ in range(len(sat_bw))]
+
+        self.mahimahi_start_ptr = 1
+        # randomize the start point of the trace
+        # note: trace file starts with time 0
+        self.mahimahi_ptr = [1 for _ in range(self.num_agents)]
+        self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]
+
+        # multiuser setting
+        self.cur_sat_id = []
+        for agent in range(self.num_agents):
+            cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
+            self.cur_sat_id.append(cur_sat_id)
+            self.connection[cur_sat_id][self.mahimahi_ptr[agent] - 1] = agent
+
+        self.video_chunk_counter = [0 for _ in range(self.num_agents)]
         self.buffer_size = [0 for _ in range(self.num_agents)]
-        self.state = [np.zeros((S_INFO, S_LEN))for _ in range(self.num_agents)]
+        self.video_chunk_counter_sent = [0 for _ in range(self.num_agents)]
+        self.video_chunk_remain = [0 for _ in range(self.num_agents)]
+        self.end_of_video = [False for _ in range(self.num_agents)]
+        self.next_video_chunk_sizes = [[] for _ in range(self.num_agents)]
+        self.next_sat_bandwidth = [[] for _ in range(self.num_agents)]
+        self.next_sat_id = [[] for _ in range(self.num_agents)]
+        self.delay = [0 for _ in range(self.num_agents)]
+
+        self.video_size = {}  # in bytes
+        for bitrate in range(BITRATE_LEVELS):
+            self.video_size[bitrate] = []
+            with open(VIDEO_SIZE_FILE + str(bitrate)) as f:
+                for line in f:
+                    self.video_size[bitrate].append(int(line.split()[0]))
+
+    def set_satellite(self, agent, sat, id_list = None):
+        if id_list == None:
+            id_list = self.next_sat_id[agent]
         
-    def seed(self, num):
-        np.random.seed(num)
+        # Do not do any satellite switch
+        sat_id = id_list[sat]
+        self.connection[sat_id][self.mahimahi_ptr[agent]] = agent
 
-    def reset_agent(self, agent):
-        bit_rate = DEFAULT_QUALITY
-        delay, sleep_time, self.buffer_size[agent], rebuf, \
-            video_chunk_size, next_video_chunk_sizes, \
-            end_of_video, video_chunk_remain, \
-            next_sat_bw = \
-            self.net_env.get_video_chunk(bit_rate, agent)
-        state = np.roll(self.state[agent], -1, axis=1)
+        if sat_id == self.cur_sat_id[agent]:
+            return
+        else:
+            self.cur_sat_id[agent] = sat_id
+            self.delay[agent] = HANDOVER_DELAY
+    
+    def step_ahead(self, agent):
+        self.connection[self.cur_sat_id[agent]][self.mahimahi_ptr[agent]] = agent
+        self.mahimahi_ptr[agent] += 1
 
-        # this should be S_INFO number of terms
-        state[0, -1] = VIDEO_BIT_RATE[bit_rate] / \
-            float(np.max(VIDEO_BIT_RATE))  # last quality
-        state[1, -1] = self.buffer_size[agent] / BUFFER_NORM_FACTOR  # 10 sec
-        state[2, -1] = float(video_chunk_size) / \
-            float(delay) / M_IN_K  # kilo byte / ms
-        state[3, -1] = float(delay) / M_IN_K / BUFFER_NORM_FACTOR  # 10 sec
-        state[4, :A_DIM] = np.array(
-            next_video_chunk_sizes) / M_IN_K / M_IN_K  # mega byte
-        state[5, -1] = np.minimum(video_chunk_remain,
-                                CHUNK_TIL_VIDEO_END_CAP) / float(CHUNK_TIL_VIDEO_END_CAP)
-        state[6, :SAT_DIM] = np.array(next_sat_bw)
-
-        self.state[agent] = state
+    def get_video_chunk(self, quality, agent):
         
-        return self.state[agent]
+        assert quality >= 0
+        assert quality < BITRATE_LEVELS
+        
+        video_chunk_size = self.video_size[quality][self.video_chunk_counter[agent]]
+        
+        # use the delivery opportunity in mahimahi
+        delay = self.delay[agent]  # in ms
+        self.delay[agent] = 0
+        video_chunk_counter_sent = 0  # in bytes
+        
+        while True:  # download video chunk over mahimahi
+            # print(self.cur_sat_id[agent], self.mahimahi_ptr[agent] )
+            throughput = self.cooked_bw[self.cur_sat_id[agent]][self.mahimahi_ptr[agent]] \
+                         * B_IN_MB / BITS_IN_BYTE
+            if throughput == 0.0:
+                # Do the forced handover
+                # Connect the satellite that has the best serving time
+                cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent])
+                
+                self.connection[cur_sat_id][self.mahimahi_ptr[agent]] = agent
+    
+                self.cur_sat_id[agent] = cur_sat_id
+                delay += HANDOVER_DELAY
+            
+            duration = self.cooked_time[self.mahimahi_ptr[agent]] \
+                       - self.last_mahimahi_time[agent]
+                       
+            packet_payload = throughput * duration * PACKET_PAYLOAD_PORTION
+            
+            if video_chunk_counter_sent + packet_payload > video_chunk_size:
 
+                fractional_time = (video_chunk_size - video_chunk_counter_sent) / \
+                                  throughput / PACKET_PAYLOAD_PORTION
+                delay += fractional_time
+                self.last_mahimahi_time[agent] += fractional_time
+                break
+
+            video_chunk_counter_sent += packet_payload
+            delay += duration
+
+            self.last_mahimahi_time[agent] = self.cooked_time[self.mahimahi_ptr[agent]]
+            # self.mahimahi_ptr[agent] += 1
+            self.step_ahead(agent)
+            
+            if self.mahimahi_ptr[agent] >= len(self.cooked_bw[self.cur_sat_id[agent]]):
+                # loop back in the beginning
+                # note: trace file starts with time 0
+                self.mahimahi_ptr[agent] = 1
+                self.last_mahimahi_time[agent] = 0
+                self.end_of_video[agent] = True
+
+        delay *= MILLISECONDS_IN_SECOND
+        delay += LINK_RTT
+
+	    # add a multiplicative noise to the delay
+        delay *= np.random.uniform(NOISE_LOW, NOISE_HIGH)
+
+        # rebuffer time
+        rebuf = np.maximum(delay - self.buffer_size[agent], 0.0)
+
+        # update the buffer
+        self.buffer_size[agent] = np.maximum(self.buffer_size[agent] - delay, 0.0)
+
+        # add in the new chunk
+        self.buffer_size[agent] += VIDEO_CHUNCK_LEN
+        
+        
+        # sleep if buffer gets too large
+        sleep_time = 0
+        if self.buffer_size[agent] > BUFFER_THRESH:
+            # exceed the buffer limit
+            # we need to skip some network bandwidth here
+            # but do not add up the delay
+            drain_buffer_time = self.buffer_size[agent] - BUFFER_THRESH
+            sleep_time = np.ceil(drain_buffer_time / DRAIN_BUFFER_SLEEP_TIME) * \
+                         DRAIN_BUFFER_SLEEP_TIME
+            self.buffer_size[agent] -= sleep_time
+
+            while True:
+                duration = self.cooked_time[self.mahimahi_ptr[agent]] \
+                           - self.last_mahimahi_time[agent]
+                if duration > sleep_time / MILLISECONDS_IN_SECOND:
+                    self.last_mahimahi_time[agent] += sleep_time / MILLISECONDS_IN_SECOND
+                    break
+                sleep_time -= duration * MILLISECONDS_IN_SECOND
+                self.last_mahimahi_time[agent] = self.cooked_time[self.mahimahi_ptr[agent]]
+                # self.mahimahi_ptr[agent] += 1
+                self.step_ahead(agent)
+                
+                if self.mahimahi_ptr[agent] >= len(self.cooked_bw[self.cur_sat_id[agent]]):
+                    # loop back in the beginning
+                    # note: trace file starts with time 0
+                    self.mahimahi_ptr[agent] = 1
+                    self.last_mahimahi_time[agent] = 0
+ 
+        # the "last buffer size" return to the controller
+        # Note: in old version of dash the lowest buffer is 0.
+        # In the new version the buffer always have at least
+        # one chunk of video
+        return_buffer_size = self.buffer_size[agent]
+
+        self.video_chunk_counter[agent] += 1
+        video_chunk_remain = TOTAL_VIDEO_CHUNCK - self.video_chunk_counter[agent]
+        
+        self.next_sat_bandwidth[agent], self.next_sat_id[agent], sat_log = self.get_all_sat_id(agent, self.mahimahi_ptr[agent] - 1)
+        
+        if self.video_chunk_counter[agent] >= TOTAL_VIDEO_CHUNCK:
+
+            self.end_of_video[agent] = True
+            self.buffer_size[agent] = 0
+            self.video_chunk_counter[agent] = 0
+            
+            # Refresh satellite info
+            self.cur_sat_id[agent] = -1
+            
+            # wait for overall clean
+
+        next_video_chunk_sizes = []
+        for i in range(BITRATE_LEVELS):
+            next_video_chunk_sizes.append(self.video_size[i][self.video_chunk_counter[agent]])
+            
+        return delay, \
+            sleep_time, \
+            return_buffer_size / MILLISECONDS_IN_SECOND, \
+            rebuf / MILLISECONDS_IN_SECOND, \
+            video_chunk_size, \
+            next_video_chunk_sizes, \
+            self.end_of_video[agent], \
+            video_chunk_remain, \
+            self.next_sat_bandwidth[agent], sat_log
+            
     def reset(self):
-        # self.net_env.reset_ptr()
-        self.net_env.reset()
-        self.time_stamp = 0
-        self.last_bit_rate = DEFAULT_QUALITY
-        self.state = [np.zeros((S_INFO, S_LEN)) for _ in range(self.num_agents)]
+        
+        self.video_chunk_counter = [0 for _ in range(self.num_agents)]
         self.buffer_size = [0 for _ in range(self.num_agents)]
+        self.video_chunk_counter_sent = [0 for _ in range(self.num_agents)]
+        self.video_chunk_remain = [0 for _ in range(self.num_agents)]
+        self.end_of_video = [False for _ in range(self.num_agents)]
+        self.next_video_chunk_sizes = [[] for _ in range(self.num_agents)]
+        self.next_sat_bandwidth = [[] for _ in range(self.num_agents)]
+        self.next_sat_id = [[] for _ in range(self.num_agents)]
+        self.delay = [0 for _ in range(self.num_agents)]
+        
+        # pick a random trace file
+        self.trace_idx = np.random.randint(len(self.all_cooked_time))
+        if self.trace_idx >= len(self.all_cooked_time):
+            self.trace_idx = 0     
+            
+        self.cooked_time = self.all_cooked_time[self.trace_idx]
+        self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+        self.cooked_remain = self.all_cooked_remain[self.trace_idx]
 
-        # for agent in range(self.num_agents):
-        #     delay, sleep_time, self.buffer_size[agent], rebuf, \
-        #         video_chunk_size, next_video_chunk_sizes, \
-        #         end_of_video, video_chunk_remain, \
-        #         next_sat_bw = \
-        #         self.net_env.get_video_chunk(bit_rate, agent, sat)
-        #     state = np.roll(self.state[agent], -1, axis=1)
+        self.mahimahi_ptr = [1 for _ in range(self.num_agents)]
+        self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]
+        
+        self.connection = {}
+        for sat_id, sat_bw in self.cooked_bw.items():
+            self.connection[sat_id] = [-1 for _ in range(len(sat_bw))]
 
-        #     # this should be S_INFO number of terms
-        #     state[0, -1] = VIDEO_BIT_RATE[bit_rate] / \
-        #         float(np.max(VIDEO_BIT_RATE))  # last quality
-        #     state[1, -1] = self.buffer_size[agent] / BUFFER_NORM_FACTOR  # 10 sec
-        #     state[2, -1] = float(video_chunk_size) / \
-        #         float(delay) / M_IN_K  # kilo byte / ms
-        #     state[3, -1] = float(delay) / M_IN_K / BUFFER_NORM_FACTOR  # 10 sec
-        #     state[4, :A_DIM] = np.array(
-        #         next_video_chunk_sizes) / M_IN_K / M_IN_K  # mega byte
-        #     state[5, -1] = np.minimum(video_chunk_remain,
-        #                             CHUNK_TIL_VIDEO_END_CAP) / float(CHUNK_TIL_VIDEO_END_CAP)
-        #     state[6, :SAT_DIM] = np.array(
-        #         next_sat_bw) * B_IN_MB / BITS_IN_BYTE  # mega byte
-
-        #     self.state[agent] = state
-        return self.state
+        self.cur_sat_id = []
+        for agent in range(self.num_agents):
+            cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
+            self.cur_sat_id.append(cur_sat_id)
+            self.connection[cur_sat_id][self.mahimahi_ptr[agent] - 1] = agent
+        
+    def check_end(self):
+        for agent in range(self.num_agents):
+            if not self.end_of_video[agent]:
+                return False
+        return True
 
     def get_first_agent(self):
-        return self.net_env.get_first_agent()
-    
-    def check_end(self):
-        return self.net_env.check_end()
+        user = -1
+        
+        for agent in range(self.num_agents):
+            if not self.end_of_video[agent]:
+                if user == -1:
+                    user = agent
+                else:
+                    if self.last_mahimahi_time[agent] < self.last_mahimahi_time[user]:
+                        user = agent
+                        
+        return user
 
-    def render(self):
-        return
+    def get_average_bw(self, sat_id, mahimahi_ptr):
+        sat_bw = self.cooked_bw[sat_id]
+        bw_list = []
+        available_bw_list = []
+        for i in range(5):
+            if mahimahi_ptr - i >= 0:
+                bw_list.append(sat_bw[mahimahi_ptr-i])
+                available_bw_list.append(sat_bw[mahimahi_ptr-i])
+            else:
+                bw_list.append(0)
+        return bw_list, sum(available_bw_list) / len(available_bw_list)
 
-    def set_sat(self, agent, sat):
-        self.net_env.set_satellite(agent, sat)
+    def get_all_average_bw(self, mahimahi_ptr):
+        all_info_list = []
+        for sat_id, sat_bw in self.cooked_bw.items():
+            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr)
+            all_info_list.append({
+                'bw_list': bw_list,
+                'bw': bw,
+                'sat_id': sat_id
+            })
+        return all_info_list
 
-    def step(self, action, agent):
-        bit_rate = int(action) % A_DIM
-        sat = int(action) // A_DIM
-        # the action is from the last decision
-        # this is to make the framework similar to the real
-        delay, sleep_time, self.buffer_size[agent], rebuf, \
-            video_chunk_size, next_video_chunk_sizes, \
-            end_of_video, video_chunk_remain, \
-            next_sat_bw = \
-            self.net_env.get_video_chunk(bit_rate, agent)
+    def get_best_bw(self, mahimahi_ptr):
 
-        self.time_stamp += delay  # in ms
-        self.time_stamp += sleep_time  # in ms
+        all_info_list = self.get_all_average_bw(mahimahi_ptr)
+        best_sat_bw = 0
+        best_sat_id = None
+        best_sat_list = []
+        for info in all_info_list:
+            bw = info['bw']
+            sat_id = info['sat_id']
+            sat_list = info['bw_list']
+            if best_sat_bw < bw:
+                if self.connection[sat_id][mahimahi_ptr + 1] == -1:
+                    best_sat_id = sat_id
+                    best_sat_bw = bw
+                    best_sat_list = sat_list
+        return best_sat_id, best_sat_bw, best_sat_list
 
-        # reward is video quality - rebuffer penalty - smooth penalty
-        reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
-            - REBUF_PENALTY * rebuf \
-            - SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
-                                      VIDEO_BIT_RATE[self.last_bit_rate]) / M_IN_K
+    def get_all_sat_id(self, agent, mahimahi_ptr=None):
+        best_sat_id = None
+        best_sat_bw = 0
+        
+        if mahimahi_ptr is None:
+            mahimahi_ptr = self.mahimahi_ptr[agent]
+        
+        sat_bw_list, sat_bw_his_list, sat_id_list = [], [], []
+        bw_list, bw = self.get_average_bw(self.cur_sat_id[agent], mahimahi_ptr)
+        best_sat_id, best_sat_bw, best_sat_list = self.get_best_bw(mahimahi_ptr)
+        
+        sat_bw_list.append(bw), sat_id_list.append(self.cur_sat_id[agent])
+        sat_bw_his_list.append(bw_list)
 
-        self.last_bit_rate = bit_rate
-        state = np.roll(self.state[agent], -1, axis=1)
+        if best_sat_id == None:
+            best_sat_id = self.cur_sat_id[agent]
+        sat_bw_list.append(best_sat_bw), sat_id_list.append(best_sat_id)
+        sat_bw_his_list.append(best_sat_list)
+        
+        return sat_bw_list, sat_id_list, sat_bw_his_list
 
-        # this should be S_INFO number of terms
-        state[0, -1] = VIDEO_BIT_RATE[bit_rate] / \
-            float(np.max(VIDEO_BIT_RATE))  # last quality
-        state[1, -1] = self.buffer_size[agent] / BUFFER_NORM_FACTOR  # 10 sec
-        state[2, -1] = float(video_chunk_size) / \
-            float(delay) / M_IN_K  # kilo byte / ms
-        state[3, -1] = float(delay) / M_IN_K / BUFFER_NORM_FACTOR  # 10 sec
-        state[4, :A_DIM] = np.array(
-            next_video_chunk_sizes) / M_IN_K / M_IN_K  # mega byte
-        state[5, -1] = np.minimum(video_chunk_remain,
-                                  CHUNK_TIL_VIDEO_END_CAP) / float(CHUNK_TIL_VIDEO_END_CAP)
-        state[6, :SAT_DIM] = np.array(next_sat_bw)
+    def get_best_sat_id(self, agent, mahimahi_ptr=None):
+        best_sat_id = None
+        best_sat_bw = 0
 
-        self.state[agent] = state
+        if mahimahi_ptr is None:
+            mahimahi_ptr = self.mahimahi_ptr[agent]
 
-        #observation, reward, done, info = env.step(action)
-        return state, reward, end_of_video, {'bitrate': VIDEO_BIT_RATE[bit_rate], 'rebuffer': rebuf}
+        for sat_id, sat_bw in self.cooked_bw.items():
+            bw_list = []
+            if sat_bw[mahimahi_ptr] == 0:
+                continue
+            for i in range(5):
+                if mahimahi_ptr - i >= 0 and sat_bw[mahimahi_ptr-i] != 0:
+                    bw_list.append(sat_bw[mahimahi_ptr-i])
+            bw = sum(bw_list) / len(bw_list)
+            if best_sat_bw < bw:
+                if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
+                    best_sat_id = sat_id
+                    best_sat_bw = bw
+        
+        if best_sat_id == None:
+            best_sat_id = self.cur_sat_id[agent]
+        return best_sat_id

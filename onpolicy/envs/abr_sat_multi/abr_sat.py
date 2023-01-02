@@ -80,7 +80,7 @@ class abrEnv(Environment):
         self.config = {
             "seed": self._seed,
             "DEFAULT_QUALITY": 1, 
-            "S_INFO": 6,
+            "S_INFO": 9,
             "S_LEN": 8,
             "A_DIM": 6,
             "VIDEO_BIT_RATE": np.array([300., 750., 1200., 1850., 2850., 4300.]),
@@ -125,7 +125,7 @@ class abrEnv(Environment):
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            next_sat_bw = \
+            next_sat_bw, sat_log = \
             self.net_env.get_video_chunk(bit_rate, agent)
         state = np.roll(self.state[agent], -1, axis=1)
 
@@ -140,6 +140,9 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
+        state[6, :2] = np.array(next_sat_bw)
+        state[7, :5] = np.array(sat_log[0])
+        state[8, :5] = np.array(sat_log[1])
 
         self.state[agent] = state
         
@@ -147,20 +150,33 @@ class abrEnv(Environment):
 
     def get_obs_from_state(self, agent):
         
-        obs = np.zeros((1, 3+self.config["S_LEN"]*2+self.config["A_DIM"]))
-        obs[0][0] = self.state[agent][0, -1]
-        obs[0][1] = self.state[agent][1, -1]
-        obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
-        obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
-        obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
-        obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
+        obs = np.zeros((1, 5+self.config["S_LEN"]*2+self.config["A_DIM"]))
+        obs[0] = np.concatenate((
+            np.array(self.state[agent][0, -1:]),
+            np.array(self.state[agent][1, -1:]),
+            np.array(self.state[agent][2, :]),
+            np.array(self.state[agent][3, :]),
+            np.array(self.state[agent][4, :self.config["A_DIM"]]),
+            np.array(self.state[agent][5, -1:]),
+            np.array(self.state[agent][6, :2])
+        ), axis=0)
+        # obs[0][0] = self.state[agent][0, -1]
+        # obs[0][1] = self.state[agent][1, -1]
+        # obs[0][2:2+self.config["S_LEN"]] = self.state[agent][2, :]
+        # obs[0][2+self.config["S_LEN"]:2+self.config["S_LEN"]*2] = self.state[agent][3, :]
+        # obs[0][2+self.config["S_LEN"]*2:2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][4, :self.config["A_DIM"]]
+        # obs[0][2+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][5, -1]
+        # obs[0][3+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 0]
+        # obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
+        # obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
+        # obs[0][4+self.config["S_LEN"]*2+self.config["A_DIM"]] = self.state[agent][6, 1]
 
         return obs
 
     def reset(self):
 
         self.net_env.reset()
-        self.time_stamp = 0
+        self.time_stamp = [0 for _ in range(self.num_agents)]
         self.last_bit_rate = self.config["DEFAULT_QUALITY"]
 
         self.buffer_size = [0 for _ in range(self.num_agents)]
@@ -179,10 +195,12 @@ class abrEnv(Environment):
 
         obs = self.get_obs_from_state(agent)
         share_obs = [self.get_obs_from_state(agent) for i in range(self.num_agents)]
-        concat_obs = np.concatenate(share_obs, axis=1)
-        share_obs = np.concatenate((concat_obs, agent_turn), axis=1)
+        share_obs = np.concatenate(share_obs, axis=0)
+        # share_obs = np.concatenate((concat_obs, agent_turn), axis=0)
 
-        return share_obs
+        available_actions = np.ones(self.num_moves())
+
+        return obs, share_obs, available_actions
 
     def step(self, action):
         action = int(action[0])
@@ -196,11 +214,11 @@ class abrEnv(Environment):
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
             end_of_video, video_chunk_remain, \
-            next_sat_bw = \
+            next_sat_bw, sat_log = \
             self.net_env.get_video_chunk(bit_rate, agent)
             
-        self.time_stamp += delay  # in ms
-        self.time_stamp += sleep_time  # in ms
+        self.time_stamp[agent] += delay  # in ms
+        self.time_stamp[agent] += sleep_time  # in ms
         
         # reward is video quality - rebuffer penalty - smooth penalty
         reward = self.config["VIDEO_BIT_RATE"][bit_rate] / self.config["M_IN_K"] \
@@ -224,6 +242,10 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
+        state[6, :2] = np.array(next_sat_bw)
+        state[7, :5] = np.array(sat_log[0])
+        state[8, :5] = np.array(sat_log[1])
+
         self.state[agent] = state
 
         agent = self.net_env.get_first_agent()
@@ -232,19 +254,21 @@ class abrEnv(Environment):
         agent_turn[0][agent] = 1
         obs = self.get_obs_from_state(agent)
         share_obs = [self.get_obs_from_state(agent) for i in range(self.num_agents)]
-        concat_obs = np.concatenate(share_obs, axis=1)
-        share_obs = np.concatenate((concat_obs, agent_turn), axis=1)
+        share_obs = np.concatenate(share_obs, axis=0)
+        # share_obs = np.concatenate((concat_obs, agent_turn), axis=1)
         
         done = self.dones
         info = {'bitrate': self.config["VIDEO_BIT_RATE"][bit_rate],
                 'rebuffer': rebuf, 
-                'time_stamp':self.time_stamp, 
+                'time_stamp':self.time_stamp[agent], 
                 'reward':reward, 
                 'agent': agent,
                 'done': end_of_video}
         reward = self.rewards
 
-        return share_obs, reward, done, info
+        available_actions = np.ones(self.num_moves())
+
+        return obs, share_obs, reward, done, info, available_actions
 
     def seed(self, seed=None):
         if seed is None:
@@ -266,7 +290,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [25 * self.num_agents + self.num_agents]
+        return [27]
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).
@@ -274,7 +298,7 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [25 * self.num_agents + self.num_agents]
+        return [27 * self.num_agents + self.num_agents]
 
     def close(self):
         pass
