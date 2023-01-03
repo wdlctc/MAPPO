@@ -1,6 +1,6 @@
 #!/bin/sh
 env="abr_sat"
-algo="mappo"
+algo="ppo"
 exp="check"
 abr="abr_multi_bw_share"
 seed_max=1

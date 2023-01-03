@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 import csv
 
 COOKED_TRACE_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\

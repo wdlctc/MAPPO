@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import sys
-sys.path.insert(0, "/home/v-cluo/xuyi-MAPPO/LC-MAPPO")
 import os
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, root_dir)
 import wandb
 import socket
 import numpy as np
@@ -9,7 +10,7 @@ import torch
 from pathlib import Path
 from onpolicy.config import get_config
 from onpolicy.envs.abr_multi_bw_share.abr_sat import abrEnv
-from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
+from onpolicy.envs.env_wrappers import ShareSubprocVecEnv, ShareDummyVecEnv
 
 """Train script for abr on sat environment."""
 
@@ -35,9 +36,9 @@ def make_train_env(all_args):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ShareDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(
+        return ShareSubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_rollout_threads)])
 
 
@@ -53,9 +54,9 @@ def make_eval_env(all_args):
             return env
         return init_env
     if all_args.n_eval_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ShareDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(
+        return ShareSubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_eval_rollout_threads)])
 
 
@@ -148,7 +149,7 @@ def main(args):
 
     # run experiments:
     if all_args.share_policy:
-        from onpolicy.runner.shared.abr_runner import abrRunner as Runner
+        from onpolicy.runner.shared.abr_runner_multi import abrRunner as Runner
     else:
         raise NotImplementedError
     
