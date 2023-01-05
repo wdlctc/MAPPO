@@ -36,22 +36,11 @@ class Environment:
         self.all_cooked_time = params['all_cooked_time']
         self.all_cooked_bw = params['all_cooked_bw']
         
-        self.all_cooked_remain = [] # FIXME: meaning?
-        for trace_idx in range(len(self.all_cooked_bw)):
-            self.all_cooked_remain.append({})
-            for sat_id, sat_bw in self.all_cooked_bw[trace_idx].items():
-                self.all_cooked_remain[trace_idx][sat_id] = []
-                for index in range(len(sat_bw)):
-                    count = 0
-                    while index + count < len(sat_bw) and sat_bw[index] != 0:
-                        count += 1
-                    self.all_cooked_remain[trace_idx][sat_id].append(count)
 
         # pick a random trace file
         self.trace_idx = np.random.randint(len(self.all_cooked_time))
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
-        self.cooked_remain = self.all_cooked_remain[self.trace_idx]
 
         self.connection = {}
         for sat_id, sat_bw in self.cooked_bw.items():
@@ -73,7 +62,7 @@ class Environment:
             cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
             self.cur_sat_id.append(cur_sat_id)
             self.connection[cur_sat_id][self.mahimahi_ptr[agent] - 1] = agent
-            self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent], 1)
+            self.update_sat_info(cur_sat_id, 1)
  
         self.video_chunk_counter = [0 for _ in range(self.num_agents)]
         self.buffer_size = [0 for _ in range(self.num_agents)]
@@ -81,10 +70,9 @@ class Environment:
         self.video_chunk_remain = [0 for _ in range(self.num_agents)]
         self.end_of_video = [False for _ in range(self.num_agents)]
         self.next_video_chunk_sizes = [[] for _ in range(self.num_agents)]
-        self.next_sat_bandwidth = [[] for _ in range(self.num_agents)] # FIXME: no need?
+        self.next_sat_bandwidth = [[] for _ in range(self.num_agents)]
         self.next_sat_id = [[] for _ in range(self.num_agents)]
         self.delay = [0 for _ in range(self.num_agents)]
-        self.next_sat_user_nums = [[] for _ in range(self.num_agents)]
        
         self.video_size = {}  # in bytes
         for bitrate in range(BITRATE_LEVELS):
@@ -101,8 +89,8 @@ class Environment:
             if sat_id == self.cur_sat_id[agent]:
                 return
             else:
-                self.update_sat_info(sat_id, self.mahimahi_ptr[agent], 1)
-                self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], -1)
+                self.update_sat_info(sat_id, 1)
+                self.update_sat_info(self.cur_sat_id[agent], -1)
                 self.cur_sat_id[agent] = sat_id
                 self.delay[agent] = HANDOVER_DELAY
                 return sat_id
@@ -140,8 +128,8 @@ class Environment:
                 # Connect the satellite that has the best performance at first
                 cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent])
                 # add user to best sat, and remove it from current sat
-                self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent], 1)
-                self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], -1)
+                self.update_sat_info(cur_sat_id, 1)
+                self.update_sat_info(self.cur_sat_id[agent], -1)
 
                 self.connection[cur_sat_id][self.mahimahi_ptr[agent]] = agent
                 self.cur_sat_id[agent] = cur_sat_id
@@ -227,22 +215,23 @@ class Environment:
         video_chunk_remain = TOTAL_VIDEO_CHUNCK - self.video_chunk_counter[agent]
 
         # get info for next choice based on previous time stamp
-        cur_sat_bw_logs, self.next_sat_bandwidth[agent], self.next_sat_id[agent], \
-            next_sat_bw_logs, connected_time = self.get_better_bw_id(agent, self.mahimahi_ptr[agent] - 1)
+        # these returned list has 2 elements: [0] for current, and [1] for best choice
+        better_sat_bw, better_sat_id, better_sat_bw_log, \
+            connected_time = self.get_better_bw_id(agent, self.mahimahi_ptr[agent] - 1)
+        self.next_sat_id[agent] = better_sat_id[1]
         
         if self.video_chunk_counter[agent] >= TOTAL_VIDEO_CHUNCK:
             self.end_of_video[agent] = True
             self.buffer_size[agent] = 0
             self.video_chunk_counter[agent] = 0
-
+            self.cur_sat_id[agent] = -1
         next_video_chunk_sizes = []
         for i in range(BITRATE_LEVELS):
             next_video_chunk_sizes.append(self.video_size[i][self.video_chunk_counter[agent]])
     
         # num of users
-        cur_sat_user_num = self.get_num_of_user_sat(self.cur_sat_id[agent])
-        next_sat_user_num = self.get_num_of_user_sat(self.next_sat_id[agent])
-        self.next_sat_user_nums[agent] = next_sat_user_num # FIXME: seems no need?
+        cur_sat_user_num = self.get_num_of_user_sat(better_sat_id[0])
+        next_sat_user_num = self.get_num_of_user_sat(better_sat_id[1])
 
         return delay, \
             sleep_time, \
@@ -252,9 +241,9 @@ class Environment:
             next_video_chunk_sizes, \
             self.end_of_video[agent], \
             video_chunk_remain, \
-            self.next_sat_bandwidth[agent],  next_sat_bw_logs, \
+            better_sat_bw,  better_sat_bw_log, \
             cur_sat_user_num, next_sat_user_num, \
-            cur_sat_bw_logs, connected_time
+            connected_time
            
     def reset(self):
         self.video_chunk_counter = [0 for _ in range(self.num_agents)]
@@ -266,7 +255,6 @@ class Environment:
         self.next_sat_bandwidth = [[] for _ in range(self.num_agents)]
         self.next_sat_id = [[] for _ in range(self.num_agents)]
         self.delay = [0 for _ in range(self.num_agents)]
-        self.next_sat_user_nums = [[] for _ in range(self.num_agents)]
         self.num_of_user_sat = {}
 
         while True:
@@ -277,7 +265,6 @@ class Environment:
 
             self.cooked_time = self.all_cooked_time[self.trace_idx]
             self.cooked_bw = self.all_cooked_bw[self.trace_idx]
-            self.cooked_remain = self.all_cooked_remain[self.trace_idx]
 
             sat_bw = list(self.cooked_bw.values())[0]
             length = len(sat_bw)
@@ -301,11 +288,10 @@ class Environment:
 
         self.cur_sat_id = []
         for agent in range(self.num_agents):
-            # why mahimahi_ptr - 1?
             cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
             self.cur_sat_id.append(cur_sat_id)
             self.connection[cur_sat_id][self.mahimahi_ptr[agent] - 1] = agent
-            self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent], 1)
+            self.update_sat_info(cur_sat_id, 1)
         
     def check_end(self):
         for agent in range(self.num_agents):
@@ -325,6 +311,72 @@ class Environment:
                         user = agent
                         
         return user
+
+    def get_average_bw(self, sat_id, mahimahi_ptr, smoothness=5):
+        sat_bw = self.cooked_bw[sat_id]
+        bw_list = []
+        for i in range(smoothness):
+            if mahimahi_ptr - i >= 0: # and sat_bw[mahimahi_ptr-i] != 0:
+                num_of_user = self.get_num_of_user_sat(sat_id)
+                if num_of_user == 0:
+                    bw_list.append(sat_bw[mahimahi_ptr - i])
+                else: # if add agent, share bw with already connected agents, so +1
+                    bw_list.append(sat_bw[mahimahi_ptr - i] / (num_of_user + 1))
+        return bw_list, sum(bw_list) / len(bw_list)
+    
+    def get_all_average_bw(self, mahimahi_ptr):
+        all_info_list = []
+        for sat_id, sat_bw in self.cooked_bw.items():
+            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr)
+            all_info_list.append({
+                'bw': bw,
+                'sat_id': sat_id,
+                'bw_list': bw_list
+            })
+        return all_info_list
+
+    def get_best_bw(self, mahimahi_ptr):
+        all_info_list = self.get_all_average_bw(mahimahi_ptr)
+        best_sat_bw = 0
+        best_sat_id = None
+        best_sat_list = []
+        for info in all_info_list:
+            bw = info['bw']
+            sat_id = info['sat_id']
+            bw_list = info['bw_list']
+            if best_sat_bw < bw:
+                if self.connection[sat_id][mahimahi_ptr + 1] == -1:
+                    best_sat_id = sat_id
+                    best_sat_bw = bw
+                    best_sat_list = bw_list
+        return best_sat_id, best_sat_bw, best_sat_list
+
+    def get_better_bw_id(self, agent, mahimahi_ptr=None):
+        if mahimahi_ptr is None:
+            mahimahi_ptr = self.mahimahi_ptr[agent]
+        
+        # better bandwidth and according sat id (better than cur_sat)
+        better_sat_bw, better_sat_id, better_sat_bw_log = [], [], []
+
+        # add cur_id to better list first
+        # average bw over 5 timestamp
+        bw_list, bw = self.get_average_bw(self.cur_sat_id[agent], mahimahi_ptr)
+        better_sat_bw.append(bw), better_sat_id.append(self.cur_sat_id[agent])
+        better_sat_bw_log.append(bw_list)
+
+        # then go over all sats to find better bw and according id
+        best_sat_id, best_sat_bw, best_bw_log = self.get_best_bw(mahimahi_ptr)
+        if best_sat_id == None:
+            best_sat_id = self.cur_sat_id[agent]
+            best_sat_bw = 0
+        better_sat_bw.append(best_sat_bw), better_sat_id.append(best_sat_id)
+        better_sat_bw_log.append(best_bw_log)
+
+        up_time_list = []
+        up_time_list.append(self.get_uptime(self.cur_sat_id[agent], mahimahi_ptr))
+        up_time_list.append(self.get_uptime(best_sat_id, mahimahi_ptr))
+        
+        return better_sat_bw, better_sat_id, better_sat_bw_log, up_time_list
 
     def get_best_sat_id(self, agent, mahimahi_ptr=None):
         best_sat_id = None
@@ -346,61 +398,6 @@ class Environment:
             best_sat_id = self.cur_sat_id[agent]
         return best_sat_id
 
-    def get_average_bw(self, sat_id, mahimahi_ptr, smoothness=5):
-        sat_bw  = self.cooked_bw[sat_id]
-        bw_list = []
-        for i in range(smoothness):
-            if mahimahi_ptr - i >= 0 and sat_bw[mahimahi_ptr-i] != 0:
-                num_of_user = self.get_num_of_user_sat(sat_id)
-                if num_of_user == 0:
-                    bw_list.append(sat_bw[mahimahi_ptr - i])
-                else: # if add agent, share bw with already connected agents, so +1
-                    bw_list.append(sat_bw[mahimahi_ptr - i] / (num_of_user + 1))
-        return bw_list, sum(bw_list) / len(bw_list)
-
-    def get_better_bw_id(self, agent, mahimahi_ptr=None):
-        if mahimahi_ptr is None:
-            mahimahi_ptr = self.mahimahi_ptr[agent]
-        
-        # better bandwidth and according sat id (better than cur_sat)
-        better_sat_bw, better_sat_id = [], []
-
-        # add cur_id to better list first
-        # average bw over 5 timestamp
-        bw_list_of_5t, avg_bw_of_5t = self.get_average_bw(self.cur_sat_id[agent], mahimahi_ptr)
-        better_sat_bw.append(avg_bw_of_5t) #, better_sat_id.append(self.cur_sat_id[agent])
-        cur_bw_log = copy.copy(bw_list_of_5t)
-
-        # then go over all sats to find better bw and according id
-        best_sat_id = None
-        best_sat_bw = 0
-        best_bw_log = []
-        for sat_id, sat_bw in self.cooked_bw.items():
-            if sat_id == self.cur_sat_id[agent]:
-                continue
-            # average bw over 5 timestamp
-            bw_list_of_5t, avg_bw_of_5t = self.get_average_bw(self.cur_sat_id[agent], mahimahi_ptr)
-            if len(bw_list_of_5t) == 0:
-                continue
-            if best_sat_bw < avg_bw_of_5t:
-                # if at time mahimahi_ptr, sat_id is not used by other agent, or already used by agent
-                if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
-                    best_sat_id = sat_id
-                    best_sat_bw = avg_bw_of_5t
-                    best_bw_log = copy.copy(bw_list_of_5t)
-
-        if best_sat_id == None:
-            best_sat_id = self.cur_sat_id[agent]
-        # append best solution as better choice -> also next choice
-        better_sat_bw.append(best_sat_bw)
-        better_sat_id = best_sat_id
-
-        up_time_list = []
-        up_time_list.append(self.get_uptime(self.cur_sat_id[agent], mahimahi_ptr))
-        up_time_list.append(self.get_uptime(best_sat_id, mahimahi_ptr))
-        
-        return cur_bw_log, better_sat_bw, better_sat_id, best_bw_log, up_time_list
-
     def get_uptime(self, sat_id, mahimahi_ptr):
         sat_bw = self.cooked_bw[sat_id]
         up_time = 0
@@ -412,7 +409,7 @@ class Environment:
             tmp_sat_bw = sat_bw[tmp_index]
         return up_time
 
-    def update_sat_info(self, sat_id, mahimahi_ptr, variation):
+    def update_sat_info(self, sat_id, variation):
         # update sat info
         if sat_id in self.num_of_user_sat.keys():
             self.num_of_user_sat[sat_id] += variation
