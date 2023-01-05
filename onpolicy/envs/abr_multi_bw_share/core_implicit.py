@@ -42,9 +42,12 @@ class Environment:
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
+        # 2 variables relevant to time
         self.connection = {}
+        self.num_of_user_sat = {}
         for sat_id, sat_bw in self.cooked_bw.items():
             self.connection[sat_id] = [-1 for _ in range(len(sat_bw))]
+            self.num_of_user_sat[sat_id] = [0 for _ in range(len(sat_bw))]
 
         # randomize the start point of the trace
         # note: trace file starts with time 0
@@ -54,15 +57,13 @@ class Environment:
         self.mahimahi_ptr = [self.mahimahi_start_ptr for _ in range(self.num_agents)]
         self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]
 
-        self.num_of_user_sat = {}
-
         # connect the satellite that has the best performance at first
         self.cur_sat_id = []
         for agent in range(self.num_agents):
             cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
             self.cur_sat_id.append(cur_sat_id)
             self.connection[cur_sat_id][self.mahimahi_ptr[agent] - 1] = agent
-            self.update_sat_info(cur_sat_id, 1)
+            self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent] - 1, 1)
  
         self.video_chunk_counter = [0 for _ in range(self.num_agents)]
         self.buffer_size = [0 for _ in range(self.num_agents)]
@@ -81,19 +82,36 @@ class Environment:
                 for line in f:
                     self.video_size[bitrate].append(int(line.split()[0]))
 
-    def set_satellite(self, agent, ho=0):
-        sat_id = self.next_sat_id[agent]
+    # def set_satellite(self, agent, ho=0):
+    #     sat_id = self.next_sat_id[agent][ho]
 
-        if ho == 1:
-            self.connection[sat_id][self.mahimahi_ptr[agent]] = agent
-            if sat_id == self.cur_sat_id[agent]:
-                return
-            else:
-                self.update_sat_info(sat_id, 1)
-                self.update_sat_info(self.cur_sat_id[agent], -1)
-                self.cur_sat_id[agent] = sat_id
-                self.delay[agent] = HANDOVER_DELAY
-                return sat_id
+    #     if ho == 1:
+    #         self.connection[sat_id][self.mahimahi_ptr[agent]] = agent
+    #         if sat_id == self.cur_sat_id[agent]:
+    #             return
+    #         else:
+    #             self.update_sat_info(sat_id, 1)
+    #             self.update_sat_info(self.cur_sat_id[agent], -1)
+    #             self.cur_sat_id[agent] = sat_id
+    #             self.delay[agent] = HANDOVER_DELAY
+    #             return sat_id
+            
+    def set_satellite(self, agent, sat, id_list = None):
+        if id_list == None:
+            id_list = self.next_sat_id[agent]
+
+        # Do not do any satellite switch
+        sat_id = id_list[sat]
+        self.connection[sat_id][self.mahimahi_ptr[agent]] = agent
+
+        if sat_id == self.cur_sat_id[agent]:
+            return
+        else: # handover accur
+            self.update_sat_info(sat_id, self.mahimahi_ptr[agent], 1)
+            self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], -1)
+            self.cur_sat_id[agent] = sat_id
+            self.delay[agent] = HANDOVER_DELAY
+            return sat_id
 
     def new_initial_state(self):
         return None
@@ -116,20 +134,20 @@ class Environment:
        
         while True:  # download video chunk over mahimahi
             # see how many users are sharing sat's bw
-            if self.get_num_of_user_sat(self.cur_sat_id[agent]) == 0:
+            if self.get_num_of_user_sat(self.cur_sat_id[agent], self.mahimahi_ptr[agent]) == 0:
                 throughput = self.cooked_bw[self.cur_sat_id[agent]][self.mahimahi_ptr[agent]] \
                              * B_IN_MB / BITS_IN_BYTE
             else: # divide by sharing number
                 throughput = self.cooked_bw[self.cur_sat_id[agent]][self.mahimahi_ptr[agent]] \
-                             * B_IN_MB / BITS_IN_BYTE / self.get_num_of_user_sat(self.cur_sat_id[agent])
+                             * B_IN_MB / BITS_IN_BYTE / self.get_num_of_user_sat(self.cur_sat_id[agent], self.mahimahi_ptr[agent])
                 
             if throughput == 0.0: # no way to download video
                 # Do the forced handover
                 # Connect the satellite that has the best performance at first
                 cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent])
                 # add user to best sat, and remove it from current sat
-                self.update_sat_info(cur_sat_id, 1)
-                self.update_sat_info(self.cur_sat_id[agent], -1)
+                self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent], 1)
+                self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], -1)
 
                 self.connection[cur_sat_id][self.mahimahi_ptr[agent]] = agent
                 self.cur_sat_id[agent] = cur_sat_id
@@ -218,7 +236,7 @@ class Environment:
         # these returned list has 2 elements: [0] for current, and [1] for best choice
         better_sat_bw, better_sat_id, better_sat_bw_log, \
             connected_time = self.get_better_bw_id(agent, self.mahimahi_ptr[agent] - 1)
-        self.next_sat_id[agent] = better_sat_id[1]
+        self.next_sat_id[agent] = better_sat_id
         
         if self.video_chunk_counter[agent] >= TOTAL_VIDEO_CHUNCK:
             self.end_of_video[agent] = True
@@ -230,8 +248,9 @@ class Environment:
             next_video_chunk_sizes.append(self.video_size[i][self.video_chunk_counter[agent]])
     
         # num of users
-        cur_sat_user_num = self.get_num_of_user_sat(better_sat_id[0])
-        next_sat_user_num = self.get_num_of_user_sat(better_sat_id[1])
+        # FIXME: whether ptr - 1
+        cur_sat_user_num = self.get_num_of_user_sat(better_sat_id[0], self.mahimahi_ptr[agent] - 1)
+        next_sat_user_num = self.get_num_of_user_sat(better_sat_id[1], self.mahimahi_ptr[agent] - 1)
 
         return delay, \
             sleep_time, \
@@ -255,7 +274,6 @@ class Environment:
         self.next_sat_bandwidth = [[] for _ in range(self.num_agents)]
         self.next_sat_id = [[] for _ in range(self.num_agents)]
         self.delay = [0 for _ in range(self.num_agents)]
-        self.num_of_user_sat = {}
 
         while True:
             # pick a random trace file
@@ -283,15 +301,17 @@ class Environment:
         self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]
         
         self.connection = {}
+        self.num_of_user_sat = {}
         for sat_id, sat_bw in self.cooked_bw.items():
             self.connection[sat_id] = [-1 for _ in range(len(sat_bw))]
+            self.num_of_user_sat[sat_id] = [0 for _ in range(len(sat_bw))]
 
         self.cur_sat_id = []
         for agent in range(self.num_agents):
             cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
             self.cur_sat_id.append(cur_sat_id)
             self.connection[cur_sat_id][self.mahimahi_ptr[agent] - 1] = agent
-            self.update_sat_info(cur_sat_id, 1)
+            self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent] - 1, variation=1)
         
     def check_end(self):
         for agent in range(self.num_agents):
@@ -312,22 +332,24 @@ class Environment:
                         
         return user
 
-    def get_average_bw(self, sat_id, mahimahi_ptr, smoothness=5):
+    def get_average_bw(self, sat_id, mahimahi_ptr, smoothness=5, agent=None):
         sat_bw = self.cooked_bw[sat_id]
         bw_list = []
         for i in range(smoothness):
             if mahimahi_ptr - i >= 0: # and sat_bw[mahimahi_ptr-i] != 0:
-                num_of_user = self.get_num_of_user_sat(sat_id)
+                num_of_user = self.get_num_of_user_sat(sat_id, mahimahi_ptr)
                 if num_of_user == 0:
                     bw_list.append(sat_bw[mahimahi_ptr - i])
                 else: # if add agent, share bw with already connected agents, so +1
-                    bw_list.append(sat_bw[mahimahi_ptr - i] / (num_of_user + 1))
+                    bw_list.append(sat_bw[mahimahi_ptr - i] / (num_of_user))
+            else:
+                bw_list.append(0)
         return bw_list, sum(bw_list) / len(bw_list)
     
-    def get_all_average_bw(self, mahimahi_ptr):
+    def get_all_average_bw(self, mahimahi_ptr, agent):
         all_info_list = []
         for sat_id, sat_bw in self.cooked_bw.items():
-            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr)
+            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr, agent=agent)
             all_info_list.append({
                 'bw': bw,
                 'sat_id': sat_id,
@@ -335,8 +357,8 @@ class Environment:
             })
         return all_info_list
 
-    def get_best_bw(self, mahimahi_ptr):
-        all_info_list = self.get_all_average_bw(mahimahi_ptr)
+    def get_best_bw(self, mahimahi_ptr, agent):
+        all_info_list = self.get_all_average_bw(mahimahi_ptr, agent)
         best_sat_bw = 0
         best_sat_id = None
         best_sat_list = []
@@ -365,7 +387,7 @@ class Environment:
         better_sat_bw_log.append(bw_list)
 
         # then go over all sats to find better bw and according id
-        best_sat_id, best_sat_bw, best_bw_log = self.get_best_bw(mahimahi_ptr)
+        best_sat_id, best_sat_bw, best_bw_log = self.get_best_bw(mahimahi_ptr, agent)
         if best_sat_id == None:
             best_sat_id = self.cur_sat_id[agent]
             best_sat_bw = 0
@@ -409,20 +431,20 @@ class Environment:
             tmp_sat_bw = sat_bw[tmp_index]
         return up_time
 
-    def update_sat_info(self, sat_id, variation):
+    def update_sat_info(self, sat_id, mahimahi_ptr, variation):
         # update sat info
         if sat_id in self.num_of_user_sat.keys():
-            self.num_of_user_sat[sat_id] += variation
+            self.num_of_user_sat[sat_id][mahimahi_ptr] += variation
         else:
-            self.num_of_user_sat[sat_id] = variation
+            self.num_of_user_sat[sat_id][mahimahi_ptr] = variation
 
-        assert self.num_of_user_sat[sat_id] >= 0
+        assert self.num_of_user_sat[sat_id][mahimahi_ptr] >= 0
 
-    def get_num_of_user_sat(self, sat_id):
+    def get_num_of_user_sat(self, sat_id, mahimahi_ptr):
         # update sat info
         if sat_id == "all":
-            return self.num_of_user_sat
+            return [self.num_of_user_sat[i][mahimahi_ptr] for i in self.num_of_user_sat.keys()]
         if sat_id in self.num_of_user_sat.keys():
-            return self.num_of_user_sat[sat_id]
+            return self.num_of_user_sat[sat_id][mahimahi_ptr]
 
         return 0

@@ -192,11 +192,11 @@ class abrEnv(Environment):
             np.array(self.state[agent][3, :]),
             np.array(self.state[agent][4, :a_dim]),
             np.array(self.state[agent][5, -1:]),
-            np.array(self.state[agent][6, :past_len]),
-            np.array(self.state[agent][7, :past_len]),
-            np.array(self.state[agent][8, :]),
-            np.array(self.state[agent][9, :]),
-            np.array(self.state[agent][10, :2])
+            # np.array(self.state[agent][6, :past_len]),
+            # np.array(self.state[agent][7, :past_len]),
+            # np.array(self.state[agent][8, :]),
+            # np.array(self.state[agent][9, :]),
+            # np.array(self.state[agent][10, :2])
         ), axis=0)
         return obs
 
@@ -337,7 +337,8 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [5+self.config["S_LEN"]*4+self.config["A_DIM"]+self.config['PAST_LEN']*2] # new shape
+        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
+        #return [5+self.config["S_LEN"]*4+self.config["A_DIM"]+self.config['PAST_LEN']*2] # new shape
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).
