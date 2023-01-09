@@ -81,7 +81,7 @@ class abrEnv(Environment):
         self.config = {
             "seed": self._seed,
             "DEFAULT_QUALITY": 1, 
-            "S_INFO": 6+1+4,
+            "S_INFO": 13,
             "S_LEN": 8,
             "A_DIM": 6,
             "PAST_LEN": 8,
@@ -135,6 +135,7 @@ class abrEnv(Environment):
                     [self.vectorized_share_observation_shape()[0]])
     
     def reset_agent(self, agent):
+        # reset agent is not valid, because it changes mahimahi_ptr
         bit_rate = self.config["DEFAULT_QUALITY"]
         delay, sleep_time, self.buffer_size[agent], rebuf, \
             video_chunk_size, next_video_chunk_sizes, \
@@ -192,11 +193,13 @@ class abrEnv(Environment):
             np.array(self.state[agent][3, :]),
             np.array(self.state[agent][4, :a_dim]),
             np.array(self.state[agent][5, -1:]),
-            # np.array(self.state[agent][6, :past_len]),
-            # np.array(self.state[agent][7, :past_len]),
-            # np.array(self.state[agent][8, :]),
-            # np.array(self.state[agent][9, :]),
-            # np.array(self.state[agent][10, :2])
+            np.array(self.state[agent][6, :past_len]),
+            np.array(self.state[agent][7, :past_len]),
+            np.array(self.state[agent][8, -1:]),
+            np.array(self.state[agent][9, -1:]),
+            np.array(self.state[agent][10, -1:]),
+            np.array(self.state[agent][11, -1:]),
+            np.array(self.state[agent][12, :2])
         ), axis=0)
         return obs
 
@@ -231,7 +234,7 @@ class abrEnv(Environment):
         else:
             print("Never!")
         self.net_env.set_satellite(agent, sat)
-        self.sat_decision_log[agent].append(sat)
+        #self.sat_decision_log[agent].append(sat)
 
     def step(self, action):
         action = int(action[0])
@@ -276,20 +279,21 @@ class abrEnv(Environment):
             next_video_chunk_sizes) / self.config["M_IN_K"] / self.config["M_IN_K"]  # mega byte
         state[5, -1] = np.minimum(video_chunk_remain,
                                   self.config["CHUNK_TIL_VIDEO_END_CAP"]) / float(self.config["CHUNK_TIL_VIDEO_END_CAP"])
-        if len(next_sat_bw_logs) < self.config['PAST_LEN']:
-            next_sat_bw_logs = [0] * (self.config['PAST_LEN'] - len(next_sat_bw_logs)) + next_sat_bw_logs
-        state[6, :self.config["PAST_LEN"]] = np.array(next_sat_bw_logs[:self.config['PAST_LEN']]) / 10
         if len(cur_sat_bw_logs) < self.config["PAST_LEN"]:
             cur_sat_bw_logs = [0] * (self.config["PAST_LEN"] - len(cur_sat_bw_logs)) + cur_sat_bw_logs
+        state[6, :self.config["PAST_LEN"]] = np.array(cur_sat_bw_logs[:self.config["PAST_LEN"]]) / 10
+        if len(next_sat_bw_logs) < self.config['PAST_LEN']:
+            next_sat_bw_logs = [0] * (self.config['PAST_LEN'] - len(next_sat_bw_logs)) + next_sat_bw_logs
+        state[7, :self.config["PAST_LEN"]] = np.array(next_sat_bw_logs[:self.config['PAST_LEN']]) / 10
+        state[8, -1] = better_bw[0]
+        state[9, -1] = better_bw[1]
+        # if self.is_handover:
+        #     state[8, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
+        #     state[9, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
 
-        state[7, :self.config["PAST_LEN"]] = np.array(cur_sat_bw_logs[:self.config["PAST_LEN"]]) / 10
-        if self.is_handover:
-            state[8:9, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
-            state[9:10, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
-
-        state[8:9, -1] = np.array(cur_sat_user_num) / 10
-        state[9:10, -1] = np.array(next_sat_user_num) / 10
-        state[10, :2] = [float(connected_time[0]) / self.config["BUFFER_NORM_FACTOR"] / 10, float(connected_time[1]) / self.config["BUFFER_NORM_FACTOR"] / 10]
+        state[10, -1] = np.array(cur_sat_user_num) / 10
+        state[11, -1] = np.array(next_sat_user_num) / 10
+        state[12, :2] = [float(connected_time[0]) / self.config["BUFFER_NORM_FACTOR"] / 10, float(connected_time[1]) / self.config["BUFFER_NORM_FACTOR"] / 10]
 
         self.state[agent] = state
 
@@ -337,8 +341,8 @@ class abrEnv(Environment):
         Returns:
           Integer, number of moves.
         """
-        return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
-        #return [5+self.config["S_LEN"]*4+self.config["A_DIM"]+self.config['PAST_LEN']*2] # new shape
+        #return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
+        return [9+self.config["S_LEN"]*2+self.config["A_DIM"]+self.config["PAST_LEN"]*2] # new shape
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).

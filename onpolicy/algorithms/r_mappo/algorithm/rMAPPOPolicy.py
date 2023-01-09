@@ -1,6 +1,7 @@
 import torch
 from onpolicy.algorithms.r_mappo.algorithm.r_actor_critic import R_Actor, R_Critic
 from onpolicy.utils.util import update_linear_schedule
+import torch.optim.lr_scheduler as lr_scheduler
 
 
 class R_MAPPOPolicy:

@@ -103,6 +103,7 @@ class Environment:
         # Do not do any satellite switch
         sat_id = id_list[sat]
         self.connection[sat_id][self.mahimahi_ptr[agent]] = agent
+        #self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], 1)
 
         if sat_id == self.cur_sat_id[agent]:
             return
@@ -134,6 +135,7 @@ class Environment:
        
         while True:  # download video chunk over mahimahi
             # see how many users are sharing sat's bw
+            #self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], 1)
             if self.get_num_of_user_sat(self.cur_sat_id[agent], self.mahimahi_ptr[agent]) == 0:
                 throughput = self.cooked_bw[self.cur_sat_id[agent]][self.mahimahi_ptr[agent]] \
                              * B_IN_MB / BITS_IN_BYTE
@@ -434,9 +436,18 @@ class Environment:
     def update_sat_info(self, sat_id, mahimahi_ptr, variation):
         # update sat info
         if sat_id in self.num_of_user_sat.keys():
-            self.num_of_user_sat[sat_id][mahimahi_ptr] += variation
+            # next time's user nums is equal to current time by default
+            # if variation != 0:
+            #     self.num_of_user_sat[sat_id][mahimahi_ptr] += variation
+            # else:
+            #     self.num_of_user_sat[sat_id][mahimahi_ptr] = \
+            #         self.num_of_user_sat[sat_id][mahimahi_ptr - 1]
+            for i in range(mahimahi_ptr, len(self.cooked_bw)):
+                self.num_of_user_sat[sat_id][i] += variation
         else:
-            self.num_of_user_sat[sat_id][mahimahi_ptr] = variation
+            # self.num_of_user_sat[sat_id][mahimahi_ptr] = variation
+            for i in range(mahimahi_ptr, len(self.cooked_bw)):
+                self.num_of_user_sat[sat_id][i] = variation
 
         assert self.num_of_user_sat[sat_id][mahimahi_ptr] >= 0
 
