@@ -197,8 +197,8 @@ class abrEnv(Environment):
             np.array(self.state[agent][7, :past_len]),
             np.array(self.state[agent][8, -1:]),
             np.array(self.state[agent][9, -1:]),
-            np.array(self.state[agent][10, -1:]),
-            np.array(self.state[agent][11, -1:]),
+            np.array(self.state[agent][10, :]),
+            np.array(self.state[agent][11, :]),
             np.array(self.state[agent][12, :2])
         ), axis=0)
         return obs
@@ -287,9 +287,9 @@ class abrEnv(Environment):
         state[7, :self.config["PAST_LEN"]] = np.array(next_sat_bw_logs[:self.config['PAST_LEN']]) / 10
         state[8, -1] = better_bw[0]
         state[9, -1] = better_bw[1]
-        # if self.is_handover:
-        #     state[8, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
-        #     state[9, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
+        if self.is_handover:
+            state[10, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
+            state[11, 0:self.config["S_LEN"]] = np.zeros((1, self.config["S_LEN"]))
 
         state[10, -1] = np.array(cur_sat_user_num) / 10
         state[11, -1] = np.array(next_sat_user_num) / 10
@@ -342,7 +342,7 @@ class abrEnv(Environment):
           Integer, number of moves.
         """
         #return [3+self.config["S_LEN"]*2+self.config["A_DIM"]]
-        return [9+self.config["S_LEN"]*2+self.config["A_DIM"]+self.config["PAST_LEN"]*2] # new shape
+        return [7+self.config["S_LEN"]*4+self.config["A_DIM"]+self.config["PAST_LEN"]*2] # new shape
 
     def vectorized_share_observation_shape(self):
         """Returns the total number of moves in this game (legal or not).

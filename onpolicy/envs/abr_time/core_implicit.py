@@ -56,7 +56,8 @@ class Environment:
         
 
         # pick a random trace file
-        self.trace_idx = np.random.randint(len(self.all_cooked_time))
+        self.trace_idx = 5
+        #self.trace_idx = np.random.randint(len(self.all_cooked_time))
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
@@ -89,9 +90,9 @@ class Environment:
         self.cur_sat_id = []
         self.prev_sat_id = [None for _ in range(self.num_agents)]
         for agent in range(self.num_agents):
-            cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
+            cur_sat_id = self.get_best_sat_id(agent)
             self.cur_sat_id.append(cur_sat_id)
-            self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent] - 1, agent, 1)
+            self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent], agent, 1)
  
         self.video_chunk_counter = [0 for _ in range(self.num_agents)]
         self.buffer_size = [0 for _ in range(self.num_agents)]
@@ -329,7 +330,7 @@ class Environment:
         
         self.cur_sat_id = []
         for agent in range(self.num_agents):
-            cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent] - 1)
+            cur_sat_id = self.get_best_sat_id(agent, self.mahimahi_ptr[agent])
             self.cur_sat_id.append(cur_sat_id)
             self.update_sat_info(cur_sat_id, self.mahimahi_ptr[agent] - 1, agent, 1)
         self.last_delay = [MPC_PAST_CHUNK_COUNT for _ in range(self.num_agents)]
