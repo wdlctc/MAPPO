@@ -146,6 +146,7 @@ class R_MAPPO():
             actor_grad_norm = get_gard_norm(self.policy.actor.parameters())
 
         self.policy.actor_optimizer.step()
+        #self.policy.actor_lr_scheduler.step()
 
         # critic update
         value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
@@ -160,6 +161,7 @@ class R_MAPPO():
             critic_grad_norm = get_gard_norm(self.policy.critic.parameters())
 
         self.policy.critic_optimizer.step()
+        #self.policy.critc_lr_scheduler.step()
 
         return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights
 
@@ -215,6 +217,14 @@ class R_MAPPO():
 
         for k in train_info.keys():
             train_info[k] /= num_updates
+        
+        # train_info['lr'] = []
+        # for param_group in self.policy.actor_optimizer.param_groups:
+        #     train_info['lr'].append(param_group['lr'])
+        
+        # train_info['critic_lr'] = []
+        # for param_group in self.policy.critic_optimizer.param_groups:
+        #     train_info['critic_lr'].append(param_group['lr'])
  
         return train_info
 

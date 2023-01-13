@@ -36,6 +36,10 @@ class R_MAPPOPolicy:
                                                  lr=self.critic_lr,
                                                  eps=self.opti_eps,
                                                  weight_decay=self.weight_decay)
+        #self.actor_lr_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=500, gamma=0.99)
+        #self.critc_lr_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=500, gamma=0.99)
+        
+        #self.actor_lr_scheduler = lr_scheduler.CosineAnnealingLR(self.actor_optimizer, T_max=)
 
     def lr_decay(self, episode, episodes):
         """
@@ -126,3 +130,6 @@ class R_MAPPOPolicy:
         """
         actions, _, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
         return actions, rnn_states_actor
+
+    def get_lr_scheduler(self):
+        scheduler = lr_scheduler.StepLR()

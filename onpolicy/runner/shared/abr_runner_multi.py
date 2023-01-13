@@ -71,6 +71,7 @@ class abrRunner(Runner):
 
                 train_infos["average_episode_rewards"] = np.mean(self.rewards)
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                #print("lr is {}, critic lr is {}".format(train_infos["lr"], train_infos["critic_lr"]))
                 self.log_train(train_infos, total_num_steps)
 
             # eval
