@@ -42,7 +42,7 @@ class Satellite:
 
         # just consider downlink for now; more interesting for most apps anyway
         self.log = structlog.get_logger(sat_id=self.sat_id)
-        self.log.debug('Satellite init', sharing_model=self.sharing_model)
+        #self.log.debug('Satellite init', sharing_model=self.sharing_model)
 
     def copy_satellite(self, mahimahi_ptr):
         return Satellite(self.sat_id, copy.deepcopy(self.sat_bw), self.sharing_model, self.get_conn_use_log(mahimahi_ptr),
@@ -63,7 +63,7 @@ class Satellite:
         total_rate = 0
         for ue in self.conn_ues:
             total_rate += ue.bs_dr[self]
-        self.log.debug('BS total rate', total_rate=total_rate)
+        #self.log.debug('BS total rate', total_rate=total_rate)
         return total_rate
 
     @property
@@ -83,6 +83,7 @@ class Satellite:
 
     @property
     def min_utility(self):
+        MAX_UTILITY = 0
         """Min utility of UEs connected to this BS. If the BS is idle, return max utility"""
         if len(self.conn_ues) > 0:
             return min([ue.utility for ue in self.conn_ues])
@@ -92,7 +93,7 @@ class Satellite:
         self.sat_bw[user_id] = sat_bw
 
     def add_ue(self, user_id, mahimahi_ptr):
-        self.log.debug("Add_ue", conn_use_log=self.conn_use_log, user_id=user_id, mahimahi_ptr=mahimahi_ptr)
+        #self.log.debug("Add_ue", conn_use_log=self.conn_use_log, user_id=user_id, mahimahi_ptr=mahimahi_ptr)
 
         # print("Add: ", user_id, self.sat_id, mahimahi_ptr)
         if mahimahi_ptr in self.conn_use_log:
@@ -113,7 +114,7 @@ class Satellite:
         """
 
     def remove_ue(self, user_id, mahimahi_ptr):
-        self.log.debug("remove_ue", conn_use_log=self.conn_use_log, user_id=user_id, mahimahi_ptr=mahimahi_ptr)
+        #self.log.debug("remove_ue", conn_use_log=self.conn_use_log, user_id=user_id, mahimahi_ptr=mahimahi_ptr)
         # print("Remove: ", user_id, self.sat_id, mahimahi_ptr)
         # assert user_id in self.conn_ues
         # self.conn_ues.remove(user_id)
@@ -167,7 +168,7 @@ class Satellite:
         return recent_log
 
     def get_cur_data_rate(self, mahimahi_ptr):
-        self.log.debug("rate", log=self.data_rate_ratio_log, ptr=mahimahi_ptr)
+        #self.log.debug("rate", log=self.data_rate_ratio_log, ptr=mahimahi_ptr)
         recent_log = {}
         for i in sorted(self.data_rate_ratio_log.keys()):
             if mahimahi_ptr < i:
@@ -190,7 +191,7 @@ class Satellite:
             data_rate_ratio[uid] += remained_ratio / len(data_rate_ratio.keys())
 
         self.data_rate_ratio_log[mahimahi_ptr] = data_rate_ratio
-        self.log.debug("set_data", user_id=user_id, ratio_list=ratio_list, data_rate_ratio=data_rate_ratio)
+        #self.log.debug("set_data", user_id=user_id, ratio_list=ratio_list, data_rate_ratio=data_rate_ratio)
         return data_rate_ratio
 
     def path_loss(self, distance, ue_height=1.5):
@@ -208,7 +209,7 @@ class Satellite:
     def snr(self, distance):
         """Return the signal-to-noise (SNR) ratio given a UE position."""
         signal = self.received_power(distance)
-        self.log.debug('SNR to UE', distance=str(distance), signal=signal)
+        #self.log.debug('SNR to UE', distance=str(distance), signal=signal)
         return signal / self.noise
 
     def data_rate_unshared(self, mahimahi_ptr, user: User):
@@ -267,7 +268,7 @@ class Satellite:
                     dr_ue_shared = dr_ue_unshared * data_rate_ratio[agent_id]
 
                 elif len(data_rate_ratio.keys()) == num_conn_ues:
-                    self.log.debug('Rated bw', dr_ue_unshared=dr_ue_unshared, data_rate_ratio=data_rate_ratio, agent_id=agent_id)
+                    #self.log.debug('Rated bw', dr_ue_unshared=dr_ue_unshared, data_rate_ratio=data_rate_ratio, agent_id=agent_id)
                     dr_ue_shared = dr_ue_unshared * data_rate_ratio[agent_id]
                 else:
                     assert False
@@ -296,8 +297,8 @@ class Satellite:
         # final, shared data rate depends on sharing model
         dr_ue_shared = self.data_rate_shared(user, dr_ue_unshared, mahimahi_ptr, plus)
 
-        self.log.debug('Achievable data rate', mahimahi_ptr=mahimahi_ptr, dr_ue_unshared=dr_ue_unshared, dr_ue_shared=dr_ue_shared,
-                       num_conn_ues=self.num_conn_ues(mahimahi_ptr), user_list=self.get_ue_list(mahimahi_ptr))
+        #self.log.debug('Achievable data rate', mahimahi_ptr=mahimahi_ptr, dr_ue_unshared=dr_ue_unshared, dr_ue_shared=dr_ue_shared,
+                       #num_conn_ues=self.num_conn_ues(mahimahi_ptr), user_list=self.get_ue_list(mahimahi_ptr))
         return dr_ue_shared
 
     def is_visible(self, mahimahi_ptr):

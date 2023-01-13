@@ -119,12 +119,12 @@ class Environment:
         self.last_delay = [MPC_PAST_CHUNK_COUNT for _ in range(self.num_agents)]
         self.unexpected_change = True
 
-    def get_video_chunk(self, quality, agent, model_type, runner_up_sat_id=None, ho_stamp=None, do_mpc=False):
+    def get_video_chunk(self, quality, agent, model_type):
 
         assert quality >= 0
         assert quality < BITRATE_LEVELS
 
-        if model_type is not None and (agent == 0 or do_mpc or self.unexpected_change) and self.end_of_video[agent] is not True:
+        if model_type is not None and (agent == 0 or self.unexpected_change) and self.end_of_video[agent] is not True:
             exit(1)
 
         
@@ -138,29 +138,6 @@ class Environment:
         self.delay[agent] = 0
         video_chunk_counter_sent = 0  # in bytes
         end_of_network = False
-        is_handover = False
-        
-        if ho_stamp == 1:
-            is_handover = True
-            delay += HANDOVER_DELAY
-            do_handover = False
-
-            if runner_up_sat_id and runner_up_sat_id != self.cur_sat_id[agent] and self.cur_satellite[
-                runner_up_sat_id].is_visible(self.mahimahi_ptr[agent]):
-                do_handover = True
-            else:
-                self.unexpected_change = True
-       
-        if do_handover:
-            self.update_sat_info(self.cur_sat_id[agent], self.mahimahi_ptr[agent], agent, -1)
-            self.update_sat_info(runner_up_sat_id, self.mahimahi_ptr[agent], agent, 1)
-            self.prev_sat_id[agent] = self.cur_sat_id[agent]
-            self.cur_sat_id[agent] = runner_up_sat_id
-            self.download_bw[agent] = []
-
-            throughput = self.cur_satellite[self.cur_sat_id[agent]].data_rate(self.cur_user[agent], \
-                self.mahimahi_ptr[agent]) * B_IN_MB / BITS_IN_BYTE
-            assert throughput != 0
 
         # Do All users' handover
         self.last_quality[agent] = quality
@@ -176,7 +153,6 @@ class Environment:
                 self.update_sat_info(sat_id, self.mahimahi_ptr[agent], agent, 1)
                 self.switch_sat(agent, sat_id)
                 delay += HANDOVER_DELAY
-                is_handover = True
                 self.download_bw[agent] = []
                 self.unexpected_change = True
                 throughput = self.cur_satellite[self.cur_sat_id[agent]].data_rate(self.cur_user[agent],\
@@ -262,7 +238,6 @@ class Environment:
                     self.update_sat_info(sat_id, self.mahimahi_ptr[agent], agent, 1)
                     self.switch_sat(agent, sat_id)
                     delay += HANDOVER_DELAY
-                    is_handover = True
                     throughput = self.cur_satellite[self.cur_sat_id[agent]].data_rate(self.cur_user[agent],\
                             self.mahimahi_ptr[agent]) * B_IN_MB / BITS_IN_BYTE
  
@@ -296,8 +271,6 @@ class Environment:
         cur_sat_user_num = len(self.cur_satellite[self.cur_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent]))
         next_sat_user_num = len(self.cur_satellite[self.next_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent]))
         MPC_PAST_CHUNK_COUNT = round(delay / M_IN_K)
-        if ho_stamp == 1 and self.end_of_video[agent] is not True:
-            exit(1)
         
         return delay, \
             sleep_time, \
@@ -397,7 +370,7 @@ class Environment:
     def get_all_average_bw(self, mahimahi_ptr, agent):
         all_info_list = []
         for sat_id, sat_bw in self.cooked_bw.items():
-            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr, agent=agent, \
+            bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr, \
                 smoothness=MPC_PAST_CHUNK_COUNT)
             all_info_list.append({
                 'bw': bw,
@@ -416,10 +389,9 @@ class Environment:
             sat_id = info['sat_id']
             bw_list = info['bw_list']
             if best_sat_bw < bw:
-                if self.connection[sat_id][mahimahi_ptr + 1] == -1:
-                    best_sat_id = sat_id
-                    best_sat_bw = bw
-                    best_sat_list = bw_list
+                best_sat_id = sat_id
+                best_sat_bw = bw
+                best_sat_list = bw_list
         return best_sat_id, best_sat_bw, best_sat_list
 
     def get_better_bw_id(self, agent, mahimahi_ptr=None):

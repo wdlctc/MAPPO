@@ -142,7 +142,7 @@ class abrEnv(Environment):
             end_of_video, video_chunk_remain, \
             _, better_bw_log, cur_sat_user_num, \
             next_sat_user_num, connected_time = \
-            self.net_env.get_video_chunk(bit_rate, agent)
+            self.net_env.get_video_chunk(bit_rate, agent, None)
         cur_sat_bw_logs = better_bw_log[0]
         next_sat_bw_logs = better_bw_log[1]
         state = np.roll(self.state[agent], -1, axis=1)
@@ -249,7 +249,7 @@ class abrEnv(Environment):
             end_of_video, video_chunk_remain, \
             better_bw, better_bw_log, cur_sat_user_num, \
             next_sat_user_num, connected_time = \
-            self.net_env.get_video_chunk(bit_rate, agent)
+            self.net_env.get_video_chunk(bit_rate, agent, None)
         # better_* are lists with 2 eles, [0] for current, and [1] for best choice
         cur_sat_bw_logs = better_bw_log[0]
         next_sat_bw_logs = better_bw_log[1]

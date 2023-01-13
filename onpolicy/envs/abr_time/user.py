@@ -48,7 +48,7 @@ class User:
 
         # just consider downlink for now; more interesting for most apps anyways
         self.log = structlog.get_logger(agent_id=self.agent_id)
-        self.log.debug('User init', agent_id=self.agent_id)
+        #self.log.debug('User init', agent_id=self.agent_id)
 
     def __repr__(self):
         return str(self.agent_id)
@@ -73,7 +73,7 @@ class User:
         self.sat_log[mahimahi_ptr] = sat_id
 
     def get_conn_sat_id(self, mahimahi_ptr):
-        self.log.debug("get_conn_sat_id", log=self.sat_log, ptr=mahimahi_ptr)
+        #self.log.debug("get_conn_sat_id", log=self.sat_log, ptr=mahimahi_ptr)
         sat_id = None
         for i in sorted(self.sat_log.keys()):
             if mahimahi_ptr < i:
@@ -93,7 +93,7 @@ class User:
         self.download_log[mahimahi_ptr] = [sat_id, video_chunk_remain, quality, last_quality, buf_size]
 
     def get_related_download_logs(self, mahimahi_ptr, target_mahimahi_ptr):
-        self.log.debug('download_log', download_log=self.download_log)
+        #self.log.debug('download_log', download_log=self.download_log)
         if not self.download_log:
             return [None] * 6
         final_logs = []
