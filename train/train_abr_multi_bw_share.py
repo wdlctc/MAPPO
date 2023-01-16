@@ -20,6 +20,8 @@ def parse_args(args, parser):
                         default='abr_sat', help="Which env to run on")
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of users")
+    parser.add_argument('--lr_scheduler', type=str,
+                        default=None, help="which scheduler to change lr")
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

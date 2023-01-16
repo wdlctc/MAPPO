@@ -21,6 +21,7 @@ class R_MAPPOPolicy:
         self.critic_lr = args.critic_lr
         self.opti_eps = args.opti_eps
         self.weight_decay = args.weight_decay
+        self.lr_scheduler = args.lr_scheduler
 
         self.obs_space = obs_space
         self.share_obs_space = cent_obs_space
@@ -36,10 +37,11 @@ class R_MAPPOPolicy:
                                                  lr=self.critic_lr,
                                                  eps=self.opti_eps,
                                                  weight_decay=self.weight_decay)
-        #self.actor_lr_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=500, gamma=0.99)
-        #self.critc_lr_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=500, gamma=0.99)
-        
-        #self.actor_lr_scheduler = lr_scheduler.CosineAnnealingLR(self.actor_optimizer, T_max=)
+        if self.lr_scheduler == "StepLR":
+            self.actor_lr_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=500, gamma=0.99)
+            self.critc_lr_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=500, gamma=0.99)
+        elif self.lr_scheduler == "CosineAnnealingLR":
+            self.actor_lr_scheduler = lr_scheduler.CosineAnnealingLR(self.actor_optimizer)
 
     def lr_decay(self, episode, episodes):
         """

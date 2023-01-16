@@ -40,6 +40,7 @@ class R_MAPPO():
         self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
         
+        self.lr_scheduler = args.lr_scheduler
         assert (self._use_popart and self._use_valuenorm) == False, ("self._use_popart and self._use_valuenorm can not be set True simultaneously")
         
         if self._use_popart:
@@ -146,7 +147,8 @@ class R_MAPPO():
             actor_grad_norm = get_gard_norm(self.policy.actor.parameters())
 
         self.policy.actor_optimizer.step()
-        #self.policy.actor_lr_scheduler.step()
+        if self.lr_scheduler:
+            self.policy.actor_lr_scheduler.step()
 
         # critic update
         value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
@@ -161,7 +163,8 @@ class R_MAPPO():
             critic_grad_norm = get_gard_norm(self.policy.critic.parameters())
 
         self.policy.critic_optimizer.step()
-        #self.policy.critc_lr_scheduler.step()
+        if self.lr_scheduler:
+            self.policy.critc_lr_scheduler.step()
 
         return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights
 
