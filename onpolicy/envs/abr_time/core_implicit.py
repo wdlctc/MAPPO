@@ -267,9 +267,9 @@ class Environment:
     
         self.download_bw[agent].append(float(video_chunk_size) / delay / M_IN_K * BITS_IN_BYTE)
         # num of users
-        # FIXME: whether ptr - 1
-        cur_sat_user_num = len(self.cur_satellite[self.cur_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent]))
-        next_sat_user_num = len(self.cur_satellite[self.next_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent]))
+        # should be ptr - 1: according to get_better_bw_id()
+        cur_sat_user_num = len(self.cur_satellite[self.cur_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent] - 1))
+        next_sat_user_num = len(self.cur_satellite[self.next_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent] - 1))
         MPC_PAST_CHUNK_COUNT = round(delay / M_IN_K)
         
         return delay, \

@@ -37,9 +37,8 @@ class Environment:
         self.all_cooked_bw = params['all_cooked_bw']
         
 
-        # pick a random trace file
+        # start from first trace
         self.trace_idx = 0
-        #self.trace_idx = np.random.randint(len(self.all_cooked_time))
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
@@ -251,7 +250,7 @@ class Environment:
             next_video_chunk_sizes.append(self.video_size[i][self.video_chunk_counter[agent]])
     
         # num of users
-        # FIXME: whether ptr - 1
+        # should be ptr - 1: according to get_better_bw_id()
         cur_sat_user_num = self.get_num_of_user_sat(better_sat_id[0], self.mahimahi_ptr[agent] - 1)
         next_sat_user_num = self.get_num_of_user_sat(better_sat_id[1], self.mahimahi_ptr[agent] - 1)
 
@@ -278,27 +277,12 @@ class Environment:
         self.next_sat_id = [[] for _ in range(self.num_agents)]
         self.delay = [0 for _ in range(self.num_agents)]
 
-        while True:
-            # pick a random trace file
-            self.trace_idx = np.random.randint(len(self.all_cooked_time))
-            if self.trace_idx >= len(self.all_cooked_time):
-                self.trace_idx = 0
-
-            self.cooked_time = self.all_cooked_time[self.trace_idx]
-            self.cooked_bw = self.all_cooked_bw[self.trace_idx]
-
-            sat_bw = list(self.cooked_bw.values())[0]
-            length = len(sat_bw)
-            for i in range(length):
-                result = []
-                for sat_id, sat_bw in self.cooked_bw.items():
-                    if sat_bw[i] > 0:
-                        result.append(sat_bw[i])
-                if len(result) < self.num_agents:
-                    break
-            if len(result) < self.num_agents: # find a valid trace file
-                continue
-            break
+        self.trace_idx += 1
+        if self.trace_idx >= len(self.all_cooked_time):
+            self.trace_idx = 0
+        print("trace index: ", self.trace_idx)
+        self.cooked_time = self.all_cooked_time[self.trace_idx]
+        self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
         self.mahimahi_ptr = [1 for _ in range(self.num_agents)]
         self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]

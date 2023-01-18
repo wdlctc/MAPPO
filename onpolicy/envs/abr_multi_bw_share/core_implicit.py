@@ -251,7 +251,7 @@ class Environment:
             next_video_chunk_sizes.append(self.video_size[i][self.video_chunk_counter[agent]])
     
         # num of users
-        # FIXME: whether ptr - 1
+        # should be ptr - 1: according to get_better_bw_id()
         cur_sat_user_num = self.get_num_of_user_sat(better_sat_id[0], self.mahimahi_ptr[agent] - 1)
         next_sat_user_num = self.get_num_of_user_sat(better_sat_id[1], self.mahimahi_ptr[agent] - 1)
 

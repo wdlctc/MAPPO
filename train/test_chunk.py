@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import sys
 import os
-# to run the code
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, root_dir)
 import wandb
@@ -10,7 +9,7 @@ import numpy as np
 import torch
 from pathlib import Path
 from onpolicy.config import get_config
-from onpolicy.envs.test_time.abr_sat import abrEnv
+from onpolicy.envs.test_chunk.abr_sat import abrEnv
 from onpolicy.envs.env_wrappers import ShareSubprocVecEnv, ShareDummyVecEnv
 
 """Train script for abr on sat environment."""
