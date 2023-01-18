@@ -2,7 +2,7 @@ import os
 import csv
 
 COOKED_TRACE_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
-    + '/dataset/sat_data_London/'
+    + '/dataset/test/'
 
 # LEO SETTINGS
 HANDOVER_DELAY = 0.2  # sec

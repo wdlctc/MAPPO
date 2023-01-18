@@ -123,7 +123,7 @@ class abrRunner(Runner):
 
         print("eval")
         eval_episode_rewards = []
-        eval_obs = self.eval_envs.reset()
+        eval_obs, share_obs, available_actions = self.eval_envs.reset()
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)

@@ -41,7 +41,10 @@ class R_MAPPOPolicy:
             self.actor_lr_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=500, gamma=0.99)
             self.critc_lr_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=500, gamma=0.99)
         elif self.lr_scheduler == "CosineAnnealingLR":
-            self.actor_lr_scheduler = lr_scheduler.CosineAnnealingLR(self.actor_optimizer)
+            t_max = 3000
+            eta_min = 5e-5
+            self.actor_lr_scheduler = lr_scheduler.CosineAnnealingLR(self.actor_optimizer, T_max=t_max, eta_min=eta_min)
+            self.critc_lr_scheduler = lr_scheduler.CosineAnnealingLR(self.critic_optimizer, T_max=t_max, eta_min=eta_min)
 
     def lr_decay(self, episode, episodes):
         """

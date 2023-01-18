@@ -221,13 +221,13 @@ class R_MAPPO():
         for k in train_info.keys():
             train_info[k] /= num_updates
         
-        # train_info['lr'] = []
-        # for param_group in self.policy.actor_optimizer.param_groups:
-        #     train_info['lr'].append(param_group['lr'])
+        train_info['lr'] = []
+        for param_group in self.policy.actor_optimizer.param_groups:
+            train_info['lr'].append(param_group['lr'])
         
-        # train_info['critic_lr'] = []
-        # for param_group in self.policy.critic_optimizer.param_groups:
-        #     train_info['critic_lr'].append(param_group['lr'])
+        train_info['critic_lr'] = []
+        for param_group in self.policy.critic_optimizer.param_groups:
+            train_info['critic_lr'].append(param_group['lr'])
  
         return train_info
 

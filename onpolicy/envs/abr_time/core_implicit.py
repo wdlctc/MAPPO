@@ -56,8 +56,8 @@ class Environment:
         
 
         # pick a random trace file
-        self.trace_idx = 5
-        #self.trace_idx = np.random.randint(len(self.all_cooked_time))
+        #self.trace_idx = 0
+        self.trace_idx = np.random.randint(len(self.all_cooked_time))
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
@@ -71,7 +71,6 @@ class Environment:
         self.mahimahi_start_ptr = 1
         self.mahimahi_ptr = [self.mahimahi_start_ptr for _ in range(self.num_agents)]
         self.last_mahimahi_time = [self.cooked_time[self.mahimahi_start_ptr - 1] for _ in range(self.num_agents)]
-        # FIXME: KJ: self.mahimahi_start_ptr - 1
         
         # Centralization
         self.user_qoe_log = [{} for _ in range(self.num_agents)]
