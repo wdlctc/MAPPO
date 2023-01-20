@@ -297,7 +297,7 @@ class Environment:
         self.trace_idx += 1
         if self.trace_idx >= len(self.all_cooked_time):
             self.trace_idx = 0
-        print("trace index: ", self.trace_idx)
+        #print("trace index: ", self.trace_idx)
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
         

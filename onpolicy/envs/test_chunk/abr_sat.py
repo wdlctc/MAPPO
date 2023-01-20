@@ -311,7 +311,8 @@ class abrEnv(Environment):
                 'time_stamp':self.time_stamp[agent], 
                 'reward':reward, 
                 'agent': agent,
-                'done': end_of_video}
+                'done': end_of_video,
+                'trace_idx': self.net_env.trace_idx}
         reward = self.rewards
 
         if end_of_video:

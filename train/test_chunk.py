@@ -22,6 +22,8 @@ def parse_args(args, parser):
                         default=1, help="number of users")
     parser.add_argument('--lr_scheduler', type=str,
                         default=None, help="which scheduler to change lr")
+    parser.add_argument('--eval_type', type=str,
+                        default=None, help="type to do evaluation")
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

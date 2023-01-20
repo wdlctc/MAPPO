@@ -76,7 +76,10 @@ class abrRunner(Runner):
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
-                self.eval(total_num_steps)
+                if self.eval_type == 'all':
+                    self.eval_all(total_num_steps)
+                else:
+                    self.eval(total_num_steps)
 
     def warmup(self):
         # reset env
@@ -122,7 +125,8 @@ class abrRunner(Runner):
     def eval(self, total_num_steps):
 
         print("eval")
-        eval_episode_rewards = []
+        self.eval_rewards = []
+        #eval_episode_rewards = []
         eval_obs, share_obs, available_actions = self.eval_envs.reset()
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
@@ -145,21 +149,89 @@ class abrRunner(Runner):
                     else:
                         eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
             elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+                eval_actions_env = [eval_actions[idx, :, 0] for idx in range(self.n_rollout_threads)]
+                #eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
             else:
                 raise NotImplementedError
 
             # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-            eval_episode_rewards.append(eval_rewards)
+            eval_obs, share_obs,eval_rewards, eval_dones, eval_infos, _ \
+                = self.eval_envs.step(eval_actions_env)
+
+            for info in eval_infos:
+                if 'trace_idx' in info.keys():
+                    print("trace index: ", info['trace_idx'])
+                if 'done' in info.keys() and not info['done']:
+                    if 'reward' in info.keys():
+                        self.eval_rewards.append(info['reward'])
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
 
-        eval_episode_rewards = np.array(eval_episode_rewards)
+        #eval_episode_rewards = np.array(eval_episode_rewards)
+        #eval_env_infos = {}
+        #eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
+        #eval_average_episode_rewards = np.mean(eval_env_infos['eval_average_episode_rewards'])
         eval_env_infos = {}
-        eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
-        eval_average_episode_rewards = np.mean(eval_env_infos['eval_average_episode_rewards'])
-        print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
+        eval_env_infos['eval_average_episode_rewards'] = np.mean(self.eval_rewards)
+        print("eval average episode rewards of agent: {}".format(eval_env_infos['eval_average_episode_rewards']))
+        self.log_env(eval_env_infos, total_num_steps)
+        
+    @torch.no_grad()
+    def eval_all(self, total_num_steps):
+    
+        print("eval")
+        self.eval_rewards = []
+        #eval_episode_rewards = []
+        eval_obs, share_obs, available_actions = self.eval_envs.reset()
+
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+        # if type is "all", test all traces in dataset
+        trace_idx = 1
+        while trace_idx != 0:
+            self.trainer.prep_rollout()
+            eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
+                                                np.concatenate(eval_rnn_states),
+                                                np.concatenate(eval_masks),
+                                                deterministic=True)
+            eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
+            eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
+            
+            if self.eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
+                for i in range(self.eval_envs.action_space[0].shape):
+                    eval_uc_actions_env = np.eye(self.eval_envs.action_space[0].high[i]+1)[eval_actions[:, :, i]]
+                    if i == 0:
+                        eval_actions_env = eval_uc_actions_env
+                    else:
+                        eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
+            elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
+                eval_actions_env = [eval_actions[idx, :, 0] for idx in range(self.n_rollout_threads)]
+                #eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+            else:
+                raise NotImplementedError
+
+            # Obser reward and next obs
+            eval_obs, share_obs,eval_rewards, eval_dones, eval_infos, _ \
+                = self.eval_envs.step(eval_actions_env)
+
+            for info in eval_infos:
+                if 'trace_idx' in info.keys():
+                    trace_idx = info['trace_idx']
+                else:
+                    trace_idx = 0
+                    print("this is impossible! pls add [trace_idx] into info\{\}")
+                if 'done' in info.keys() and not info['done']:
+                    if 'reward' in info.keys():
+                        self.eval_rewards.append(info['reward'])
+
+            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+
+        eval_env_infos = {}
+        eval_env_infos['eval_average_episode_rewards'] = np.mean(self.eval_rewards)
+        print("eval average episode rewards of agent: {}".format(eval_env_infos['eval_average_episode_rewards']))
         self.log_env(eval_env_infos, total_num_steps)
