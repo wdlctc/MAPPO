@@ -399,9 +399,10 @@ class Environment:
                 continue
             bw_list, bw = self.get_average_bw(sat_id, mahimahi_ptr, smoothness=PAST_LEN)
             if best_sat_bw < bw:
-                if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
-                    best_sat_id = sat_id
-                    best_sat_bw = bw
+                # I think this judgement is unecessary, 'cause in get_avg_bw(), we already considered user_num
+                #if self.connection[sat_id][mahimahi_ptr] == -1 or self.connection[sat_id][mahimahi_ptr] == agent:
+                best_sat_id = sat_id
+                best_sat_bw = bw
         
         if best_sat_id == None:
             best_sat_id = self.cur_sat_id[agent]

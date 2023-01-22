@@ -5,8 +5,9 @@ from gym.spaces import Discrete
 # -------------------------------------------------------------------------------
 # Environment API
 # -------------------------------------------------------------------------------
-
-
+import os
+COOKED_TRACE_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
+    + '/dataset/train/'
 class Environment(object):
     """Abstract Environment interface.
 
@@ -74,7 +75,7 @@ class abrEnv(Environment):
     ```
     """
 
-    def __init__(self, args, seed):
+    def __init__(self, args, seed, folder=COOKED_TRACE_FOLDER):
         self._seed = seed
         self.num_agents = args.num_agents
 
@@ -98,7 +99,7 @@ class abrEnv(Environment):
         }
 
         self.is_handover = False
-        all_cooked_time, all_cooked_bw, _ = load_trace.load_trace()
+        all_cooked_time, all_cooked_bw, _ = load_trace.load_trace(cooked_trace_folder=folder)
         assert len(all_cooked_time) == len(all_cooked_bw)
         param = {
             'seed': self.config["seed"],

@@ -28,11 +28,13 @@ def parse_args(args, parser):
 
     return all_args
 
+TRAIN_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
+    + '/onpolicy/envs/dataset/train/'
 def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "abr_sat":
-                env = abrEnv(all_args, (all_args.seed + rank * 1000))
+                env = abrEnv(all_args, (all_args.seed + rank * 1000), folder=TRAIN_FOLDER)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -45,12 +47,13 @@ def make_train_env(all_args):
         return ShareSubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_rollout_threads)])
 
-
+TEST_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
+    + '/onpolicy/envs/dataset/test_tight/'
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "abr_sat":
-                env = abrEnv(all_args, (all_args.seed * 50000 + rank * 10000))
+                env = abrEnv(all_args, (all_args.seed * 50000 + rank * 10000), folder=TEST_FOLDER)
             else:
                 print("Can not support the " +
                       all_args.env_name + " environment.")

@@ -7,7 +7,7 @@ from gym.spaces import Discrete
 # -------------------------------------------------------------------------------
 import os
 COOKED_TRACE_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
-    + '/dataset/test/'
+    + '/dataset/train/'
 class Environment(object):
     """Abstract Environment interface.
 
