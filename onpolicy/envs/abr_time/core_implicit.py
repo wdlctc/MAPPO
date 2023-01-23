@@ -395,6 +395,15 @@ class Environment:
         return best_sat_id, best_sat_bw, best_sat_list
 
     def get_better_bw_id(self, agent, mahimahi_ptr=None):
+        '''
+        Changed from the origin get_next_sat_info().
+        This function has 4 return variables:
+        All of 4 have 2 elements, [0] is for current connected satellite and [1] for next one.
+        better_sat_bw stores their averaged bandwidth among a period time (decided by 'smoothness').
+        better_sat_id stores their satellite id.
+        better_sat_log stores list of bandwidth among a period time (smoothness)
+        up_time_list stores their visible time.
+        '''
         if mahimahi_ptr is None:
             mahimahi_ptr = self.mahimahi_ptr[agent]
         
