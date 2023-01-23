@@ -5,8 +5,9 @@ from gym.spaces import Discrete
 # -------------------------------------------------------------------------------
 # Environment API
 # -------------------------------------------------------------------------------
-
-
+import os
+COOKED_TRACE_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
+    + '/dataset/train/'
 class Environment(object):
     """Abstract Environment interface.
 
@@ -74,7 +75,7 @@ class abrEnv(Environment):
     ```
     """
 
-    def __init__(self, args, seed):
+    def __init__(self, args, seed, folder=COOKED_TRACE_FOLDER):
         self._seed = seed
         self.num_agents = args.num_agents
 
@@ -98,7 +99,7 @@ class abrEnv(Environment):
         }
 
         self.is_handover = False
-        all_cooked_time, all_cooked_bw, _ = load_trace.load_trace()
+        all_cooked_time, all_cooked_bw, _ = load_trace.load_trace(cooked_trace_folder=folder)
         assert len(all_cooked_time) == len(all_cooked_bw)
         param = {
             'seed': self.config["seed"],
@@ -236,7 +237,7 @@ class abrEnv(Environment):
         self.net_env.set_satellite(agent, sat)
         #self.sat_decision_log[agent].append(sat)
 
-    def step(self, action):
+    def step(self, action, trace_idx=False):
         action = int(action[0])
         bit_rate = int(action) % self.config["A_DIM"]
         sat = int(action) // self.config["A_DIM"]
@@ -311,14 +312,14 @@ class abrEnv(Environment):
                 'time_stamp':self.time_stamp[agent], 
                 'reward':reward, 
                 'agent': agent,
-                'done': end_of_video}
+                'done': end_of_video,
+                'trace_idx': self.net_env.trace_idx}
         reward = self.rewards
 
         if end_of_video:
             state = np.zeros((self.config["S_INFO"], self.config["S_LEN"]))
             
         available_actions = np.ones(self.num_moves())
-        
         return obs, share_obs, reward, done, info, available_actions
 
     def seed(self, seed=None):

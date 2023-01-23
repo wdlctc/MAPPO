@@ -55,9 +55,8 @@ class Environment:
         self.all_cooked_bw = params['all_cooked_bw']
         
 
-        # pick a random trace file
-        #self.trace_idx = 0
-        self.trace_idx = np.random.randint(len(self.all_cooked_time))
+        # start from first trace
+        self.trace_idx = 0
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
@@ -268,8 +267,8 @@ class Environment:
         self.download_bw[agent].append(float(video_chunk_size) / delay / M_IN_K * BITS_IN_BYTE)
         # num of users
         # should be ptr - 1: according to get_better_bw_id()
-        cur_sat_user_num = len(self.cur_satellite[self.cur_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent] - 1))
-        next_sat_user_num = len(self.cur_satellite[self.next_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent] - 1))
+        cur_sat_user_num = len(self.cur_satellite[self.cur_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent]-1))
+        next_sat_user_num = len(self.cur_satellite[self.next_sat_id[agent]].get_ue_list(self.mahimahi_ptr[agent]-1))
         MPC_PAST_CHUNK_COUNT = round(delay / M_IN_K)
         
         return delay, \
@@ -295,27 +294,12 @@ class Environment:
         self.download_bw = [[] for _ in range(self.num_agents)]
         self.cur_satellite = {}
 
-        while True:
-            # pick a random trace file
-            self.trace_idx = np.random.randint(len(self.all_cooked_time))
-            if self.trace_idx >= len(self.all_cooked_time):
-                self.trace_idx = 0
-
-            self.cooked_time = self.all_cooked_time[self.trace_idx]
-            self.cooked_bw = self.all_cooked_bw[self.trace_idx]
-
-            sat_bw = list(self.cooked_bw.values())[0]
-            length = len(sat_bw)
-            for i in range(length):
-                result = []
-                for sat_id, sat_bw in self.cooked_bw.items():
-                    if sat_bw[i] > 0:
-                        result.append(sat_bw[i])
-                if len(result) < self.num_agents:
-                    break
-            if len(result) < self.num_agents: # find a valid trace file
-                continue
-            break
+        self.trace_idx += 1
+        if self.trace_idx >= len(self.all_cooked_time):
+            self.trace_idx = 0
+        #print("trace index: ", self.trace_idx)
+        self.cooked_time = self.all_cooked_time[self.trace_idx]
+        self.cooked_bw = self.all_cooked_bw[self.trace_idx]
         
         for sat_id, sat_bw in self.cooked_bw.items():
             self.num_sat_info[sat_id] = [0 for _ in range(len(sat_bw))]

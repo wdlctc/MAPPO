@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from pathlib import Path
 from onpolicy.config import get_config
-from onpolicy.envs.test_time.abr_sat import abrEnv
+from onpolicy.envs.abr_time.abr_sat import abrEnv
 from onpolicy.envs.env_wrappers import ShareSubprocVecEnv, ShareDummyVecEnv
 
 """Train script for abr on sat environment."""
