@@ -56,8 +56,8 @@ class Environment:
         
 
         # start from first trace
-        self.trace_idx = np.random.randint(len(self.all_cooked_time))
-        #self.trace_idx = 0
+        ##elf.trace_idx = np.random.randint(len(self.all_cooked_time))
+        self.trace_idx = 0
         self.cooked_time = self.all_cooked_time[self.trace_idx]
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]
 
@@ -189,7 +189,7 @@ class Environment:
         delay += LINK_RTT
 
 	    # add a multiplicative noise to the delay
-        delay *= np.random.uniform(NOISE_LOW, NOISE_HIGH)
+        #delay *= np.random.uniform(NOISE_LOW, NOISE_HIGH)
 
         # rebuffer time
         rebuf = np.maximum(delay - self.buffer_size[agent], 0.0)
@@ -295,34 +295,34 @@ class Environment:
         self.download_bw = [[] for _ in range(self.num_agents)]
         self.cur_satellite = {}
 
-        # self.trace_idx += 1
-        # if self.trace_idx >= len(self.all_cooked_time):
-        #     self.trace_idx = 0
-        # #print("trace index: ", self.trace_idx)
-        # self.cooked_time = self.all_cooked_time[self.trace_idx]
-        # self.cooked_bw = self.all_cooked_bw[self.trace_idx]
-        while True:
-            # pick a random trace file
-            self.trace_idx = np.random.randint(len(self.all_cooked_time))
+        self.trace_idx += 1
+        if self.trace_idx >= len(self.all_cooked_time):
+            self.trace_idx = 0
+        #print("trace index: ", self.trace_idx)
+        self.cooked_time = self.all_cooked_time[self.trace_idx]
+        self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+        # while True:
+        #     # pick a random trace file
+        #     self.trace_idx = np.random.randint(len(self.all_cooked_time))
             
-            self.cooked_time = self.all_cooked_time[self.trace_idx]
-            self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+        #     self.cooked_time = self.all_cooked_time[self.trace_idx]
+        #     self.cooked_bw = self.all_cooked_bw[self.trace_idx]
             
-            for sat_id, sat_bw in self.cooked_bw.items():
-                length = len(sat_bw)
-                break
-            for i in range(length):
-                result = []
-                for sat_id, sat_bw in self.cooked_bw.items():
-                    if sat_bw[i] > 0:
-                        result.append(sat_bw[i])
-                if len(result) < self.num_agents:
-                    break
-            if len(result) < self.num_agents:
-                continue
-            if self.trace_idx >= len(self.all_cooked_time):
-                self.trace_idx = 0     
-            break
+        #     for sat_id, sat_bw in self.cooked_bw.items():
+        #         length = len(sat_bw)
+        #         break
+        #     for i in range(length):
+        #         result = []
+        #         for sat_id, sat_bw in self.cooked_bw.items():
+        #             if sat_bw[i] > 0:
+        #                 result.append(sat_bw[i])
+        #         if len(result) < self.num_agents:
+        #             break
+        #     if len(result) < self.num_agents:
+        #         continue
+        #     if self.trace_idx >= len(self.all_cooked_time):
+        #         self.trace_idx = 0     
+        #     break
         
         for sat_id, sat_bw in self.cooked_bw.items():
             self.num_sat_info[sat_id] = [0 for _ in range(len(sat_bw))]
