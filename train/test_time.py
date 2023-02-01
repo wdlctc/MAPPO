@@ -50,7 +50,7 @@ def make_train_env(all_args):
             all_args.n_rollout_threads)])
 
 TEST_FOLDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\
-    + '/onpolicy/envs/dataset/test_tight/'
+    + '/onpolicy/envs/dataset/test/'
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():

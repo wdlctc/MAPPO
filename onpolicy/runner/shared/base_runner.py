@@ -128,12 +128,12 @@ class Runner(object):
     def save(self, episode=0):
         """Save policy's actor and critic networks."""
         policy_actor = self.trainer.policy.actor
-        torch.save(policy_actor.state_dict(), str(self.save_dir) + "nn_model_ep_"+str(episode)+".ckpt.actor")
+        torch.save(policy_actor.state_dict(), str(self.save_dir) + "/nn_model_ep_"+str(episode)+".ckpt.actor")
         policy_critic = self.trainer.policy.critic
-        torch.save(policy_critic.state_dict(), str(self.save_dir) + "nn_model_ep_"+str(episode)+".ckpt.critic")
+        torch.save(policy_critic.state_dict(), str(self.save_dir) + "/nn_model_ep_"+str(episode)+".ckpt.critic")
         if self.trainer._use_valuenorm:
             policy_vnorm = self.trainer.value_normalizer
-            torch.save(policy_vnorm.state_dict(), str(self.save_dir) + "nn_model_ep_"+str(episode)+".ckpt.vnorm")
+            torch.save(policy_vnorm.state_dict(), str(self.save_dir) + "/nn_model_ep_"+str(episode)+".ckpt.vnorm")
 
     def restore(self):
         """Restore policy's networks from a saved model."""
